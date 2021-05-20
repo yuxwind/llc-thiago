@@ -1,2 +1,6 @@
 data/
 model_dir/
+logs/
+
+*.sh
+RESULTS.txt
