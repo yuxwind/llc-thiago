@@ -46,7 +46,7 @@ time_limit = 7200 #600
 
 model_dir = './model_dir'
 
-script_path = f'./train{first_network}.sh'
+script_path = f'./train{first_network}_net{type_id}.sh'
 f = open(script_path, 'a')
 
 for idx,type in enumerate(types):

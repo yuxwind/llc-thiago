@@ -2,6 +2,8 @@ data/
 model_dir/
 logs/
 
-train*.sh
-run*.sh
+slurm-gpu-job.out
+*.pyc
+#train*.sh
+#run*.sh
 RESULTS.txt

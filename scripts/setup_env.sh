@@ -3,6 +3,4 @@ conda activate lossless
 #conda config --add channels http://conda.anaconda.org/gurobi
 #conda install gurobi
 pip install -r dependencies/requirements.txt
-mkdir data
-mkdir logs
-mkdir model_dir
+mkdir data logs model_dir
