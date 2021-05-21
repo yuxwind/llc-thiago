@@ -1,5 +1,6 @@
 import os
 import sys
+import numpy as np
 
 #types = ["100-100-100-100-100"] # "25-25-25" #["800-800"] # [ "25-25", "50-50", "100-100", "200-200", "400-400", "25-25-25", "50-50-50", "100-100-100" ] 
 #types = ["100-100-100-100-100"] 
@@ -32,9 +33,15 @@ l1_reg = { "25-25": [ 0.001 ],
             "50-50-50-50": [0.0, 0.0002, 0.0003],
             "100-100-100-100": c0,
             "100-100-100-100-100": c0}
-first_network = int(sys.argv[1])
-nb_networks = 1 #5
-type_id = int(sys.argv[2])
+if len(sys.argv) >= 2:
+    type_id = int(sys.argv[1])
+if len(sys.argv) >= 3:
+    first_network = int(sys.argv[2])
+if len(sys.argv) >= 4:
+    nb_networks = int(sys.argv[3]) #5
+if len(sys.argv) == 5:
+    l1_reg = {}
+    l1_reg[types[type_id]] = [float(sys.argv[4])]
 
 dataset = "MNIST" # Can also be "CIFAR10" for gray CIFAR10
 
@@ -44,7 +51,7 @@ test_old_compression = False
 
 time_limit = 7200 #600
 
-model_dir = 'model_dir'
+model_dir = 'tmp/model_dir'
 
 for idx, type in enumerate(types):
     if idx != type_id:
@@ -58,5 +65,5 @@ for idx, type in enumerate(types):
 
             if test_old_compression:
                 os.system("python get_activation_patterns.py -b --input " + folder + "/weights.dat" + " --formulation neuron --time_limit " + str(time_limit) + " --dataset " + dataset)
-            if  test_compression:
+            if  test_new_compression:
                 os.system("python get_activation_patterns.py -b --input " + folder + "/weights.dat" + " --formulation network --time_limit " + str(time_limit) + " --dataset " + dataset)
