@@ -414,8 +414,11 @@ def networkcallback(model, where):
     global p, q, i, nodes_per_layer, positive_units, negative_units
     global h
     global lst
-
+    
+    print(f'networkcallback: where={where}')
+    import pdb;pdb.set_trace()
     if where == GRB.Callback.MIPSOL:
+        import pdb;pdb.set_trace()
         print("FOUND A SOLUTION")
         p_value = model.cbGetSolution(p)
         q_value = model.cbGetSolution(q)
@@ -430,11 +433,13 @@ def networkcallback(model, where):
                 model.cbLazy(q[m,n] == 0)
                 #print("-",m,n)
     elif where == GRB.Callback.MIP:
+        import pdb;pdb.set_trace()
         objbnd = model.cbGet(GRB.Callback.MIP_OBJBND)
         print("BOUND:", objbnd)
         if objbnd<0.5:
             model.terminate()
     elif where == GRB.Callback.MIPNODE:
+        import pdb;pdb.set_trace()
         print("MIPNODE")
         vars = []
         values = []
@@ -615,7 +620,7 @@ for i in range(1,run_till_layer_index):
                     #print(model.Runtime)
 
                 except GurobiError:
-                    print("Error reported")
+                    print("1 Error reported")
 
                 if not timed_out:
 
@@ -750,7 +755,7 @@ for i in range(1,run_till_layer_index):
                     if args.time_limit != None and time.time()-time_before > args.time_limit:
                         timed_out = True
             except GurobiError:
-                    print("Error reported")
+                    print("2 Error reported")
 
             for n in range(nodes_per_layer[i]):
                 if n in positive_units and not n in negative_units:
@@ -846,6 +851,7 @@ if determine_stability_per_network:
    
             try:
                     print("SOLVING FOR",network)
+                    import pdb;pdb.set_trace()
                     positive_units = set()
                     negative_units = set()
                     model.params.LazyConstraints = 1
@@ -856,7 +862,7 @@ if determine_stability_per_network:
                     if args.time_limit != None and time.time()-time_before > args.time_limit:
                         timed_out = True
             except GurobiError:
-                    print("Error reported")
+                    print("3 Error reported")
 
             for m in range(1, run_till_layer_index):
               for n in range(nodes_per_layer[m]):
@@ -1062,7 +1068,7 @@ if (show_activations):
 try:
     model.optimize(mycallback)
 except GurobiError:
-    print("Error reported")
+    print("3 Error reported")
 
 # close the activations pattern file
 my_file.close()
