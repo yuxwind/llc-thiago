@@ -51,7 +51,7 @@ test_old_compression = False
 
 time_limit = 7200 #600
 
-model_dir = 'tmp/model_dir'
+model_dir = 'model_dir'
 
 for idx, type in enumerate(types):
     if idx != type_id:
