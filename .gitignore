@@ -1,6 +1,7 @@
 data/
 model_dir/
 logs/
+model_dir
 
 slurm-gpu-job.out
 *.pyc
