@@ -415,10 +415,7 @@ def networkcallback(model, where):
     global h
     global lst
     
-    print(f'networkcallback: where={where}')
-    import pdb;pdb.set_trace()
     if where == GRB.Callback.MIPSOL:
-        import pdb;pdb.set_trace()
         print("FOUND A SOLUTION")
         p_value = model.cbGetSolution(p)
         q_value = model.cbGetSolution(q)
@@ -433,13 +430,11 @@ def networkcallback(model, where):
                 model.cbLazy(q[m,n] == 0)
                 #print("-",m,n)
     elif where == GRB.Callback.MIP:
-        import pdb;pdb.set_trace()
         objbnd = model.cbGet(GRB.Callback.MIP_OBJBND)
         print("BOUND:", objbnd)
         if objbnd<0.5:
             model.terminate()
     elif where == GRB.Callback.MIPNODE:
-        import pdb;pdb.set_trace()
         print("MIPNODE")
         vars = []
         values = []
@@ -464,7 +459,8 @@ def networkcallback(model, where):
 network = args.input[:args.input.rfind("/")] #args.input.split("/")[0]
 print("Network",network)
 print("Accuracy",accuracy)
-f = open("RESULTS.txt","a+")
+#f = open("RESULTS.txt","a+")
+f = open(os.path.join('results', os.path.basename(os.path.dirname(args.input)) + '.txt'), "a+")
 f.write(network+", "+str(accuracy)+", , ")
 
 timeouts = 0
@@ -851,7 +847,6 @@ if determine_stability_per_network:
    
             try:
                     print("SOLVING FOR",network)
-                    import pdb;pdb.set_trace()
                     positive_units = set()
                     negative_units = set()
                     model.params.LazyConstraints = 1
@@ -861,7 +856,7 @@ if determine_stability_per_network:
                     model.optimize(networkcallback) 
                     if args.time_limit != None and time.time()-time_before > args.time_limit:
                         timed_out = True
-            except GurobiError:
+            except GurobiError as e:
                     print("3 Error reported")
 
             for m in range(1, run_till_layer_index):
