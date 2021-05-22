@@ -1,6 +1,50 @@
-net=$1
-sh train1_net${net}.sh > logs/train1_net${net}.log 2>&1 &
-sh train2_net${net}.sh > logs/train2_net${net}.log 2>&1 &
-sh train3_net${net}.sh > logs/train3_net${net}.log 2>&1 &
-sh train4_net${net}.sh > logs/train4_net${net}.log 2>&1 &
-sh train5_net${net}.sh > logs/train5_net${net}.log 2>&1 &
+ #python llc2e_command.py 2 1 1 0 4
+ #python llc2e_command.py 2 2 2 0 4
+ #python llc2e_command.py 2 3 3 0 4
+ #python llc2e_command.py 2 4 4 0 4
+ #python llc2e_command.py 2 5 5 0 4
+ #python llc2e_command.py 2 1 1 5 9
+ #python llc2e_command.py 2 2 2 5 9
+ #python llc2e_command.py 2 3 3 5 9
+ #python llc2e_command.py 2 4 4 5 9
+ #python llc2e_command.py 2 5 5 5 9
+ #python llc2e_command.py 3 1 1 0 4
+ #python llc2e_command.py 3 2 2 0 4
+ #python llc2e_command.py 3 3 3 0 4
+ #python llc2e_command.py 3 4 4 0 4
+ #python llc2e_command.py 3 5 5 0 4
+ #python llc2e_command.py 3 1 1 5 9
+ #python llc2e_command.py 3 2 2 5 9
+ #python llc2e_command.py 3 3 3 5 9
+ #python llc2e_command.py 3 4 4 5 9
+ #python llc2e_command.py 3 5 5 5 9
+ #python llc2e_command.py 4 1 1 0 4
+ #python llc2e_command.py 4 2 2 0 4
+ #python llc2e_command.py 4 3 3 0 4
+ #python llc2e_command.py 4 4 4 0 4
+ #python llc2e_command.py 4 5 5 0 4
+ #python llc2e_command.py 4 1 1 5 9
+ #python llc2e_command.py 4 2 2 5 9
+ #python llc2e_command.py 4 3 3 5 9
+ #python llc2e_command.py 4 4 4 5 9
+ #python llc2e_command.py 4 5 5 5 9
+ #python llc2e_command.py 5 1 1 0 4
+ #python llc2e_command.py 5 2 2 0 4
+ #python llc2e_command.py 5 3 3 0 4
+ #python llc2e_command.py 5 4 4 0 4
+ #python llc2e_command.py 5 5 5 0 4
+ #python llc2e_command.py 5 1 1 5 9
+ #python llc2e_command.py 5 2 2 5 9
+ #python llc2e_command.py 5 3 3 5 9
+ #python llc2e_command.py 5 4 4 5 9
+ #python llc2e_command.py 5 5 5 5 9
+ python llc2e_command.py 6 1 1 0 4
+ python llc2e_command.py 6 2 2 0 4
+ python llc2e_command.py 6 3 3 0 4
+ python llc2e_command.py 6 4 4 0 4
+ python llc2e_command.py 6 5 5 0 4
+ python llc2e_command.py 6 1 1 5 9
+ python llc2e_command.py 6 2 2 5 9
+ python llc2e_command.py 6 3 3 5 9
+ python llc2e_command.py 6 4 4 5 9
+ python llc2e_command.py 6 5 5 5 9

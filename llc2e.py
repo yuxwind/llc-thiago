@@ -49,7 +49,7 @@ train_networks = False
 test_new_compression = True
 test_old_compression = False
 
-time_limit = 7200 #600
+time_limit = 10800 #600
 
 model_dir = 'model_dir'
 
