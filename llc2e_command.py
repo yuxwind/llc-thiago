@@ -42,14 +42,12 @@ if len(sys.argv) >= 4:
 else:
     first_network = 1
     last_network = 5 
-if len(sys.argv) >= 6:
-    first_lr = int(sys.argv[4])
-    last_lr = int(sys.argv[5])
-    script_path = f'./compress-net{type_id}-run_{first_network}_{last_network}-lr_{first_lr}_{last_lr}.sh'
+if len(sys.argv) >= 5:
+    lr_idx = [int(s) for s in sys.argv[4].strip().split(',')]
+    script_path = f'./compress-net{type_id}-run_{first_network}_{last_network}-{sys.argv[4].strip()}.sh'
 else:
-    first_lr = 0
-    last_lr = None 
-    script_path = f'./compress-net{type_id}-run_{first_network}_{last_network}.sh'
+    lr_idx = None
+    script_path = f'compress-net{type_id}-run_{first_network}_{last_network}.sh'
 
 dataset = "MNIST" # Can also be "CIFAR10" for gray CIFAR10
 
@@ -61,18 +59,27 @@ collect_results = True
 time_limit = 10800 #600
 
 model_dir = './model_dir'
+#env = "GRB_LICENSE_FILE=~/gurobi-license/`sh ~/get_uname.sh`/gurobi.lic "
+f = open(os.path.join('scripts/compress', script_path), 'w')
 
-f = open(script_path, 'a')
 if collect_results:
-    f_result = open(f'collected_results.txt', 'w')
+    f_result = open(f'./collected_results.txt', 'w')
+
+def parse_result(line):
+    eg_line = './model_dir/dnn_MNIST_100-100-100-100-100_0.0002_0002, 98.08999633789062, , 20, 20, 19,, 26, 26, 16,, 42, 42, 18,,     49, 49, 13,, 28, 28, 16,, 4338.198356389999,, network, relaxation,, 1020,,'
+    eg_cnt = len(eg_line.strip().split(','))
+    terms = line.strip().replace(' ', '').split(',,')
+    name,acc = terms[0].split(',')
+    runtime = terms[-3]
+    info = terms[-2]
+    
 
 for idx,type in enumerate(types):
     if type_id is not None and idx != type_id:
         continue
     #f.write(f'#{type_arch[type]}:\n')
-    if last_lr is not None:
-        last_lr += 1
-    for l1 in l1_reg[type][first_lr:last_lr]:
+    all_l1 = l1_reg[type] if lr_idx is None else l1_reg[type][lr_idx]
+    for l1 in all_l1:
         for network in range(first_network, last_network+1):
             folder = os.path.join(model_dir, "dnn_"+dataset+"_"+type+"_"+str(l1)+"_"+str(network).zfill(4))
             if train_networks:
@@ -86,11 +93,14 @@ for idx,type in enumerate(types):
                 exp_path = os.path.join('./results', os.path.basename(folder) + '.txt')
                 if os.path.exists(exp_path):
                     with open(exp_path, 'r') as f_exp:
-                        s_exp  = f_exp.read()
-                        if len(s_exp.strip().split('\n')) >= 2:
-                            print(exp_path)
-
-                        f_result.write(s_exp)
+                        s_exp  = f_exp.readlines()
+                        if len(s_exp) >= 2:
+                            print('run multiple times: ', exp_path)
+                        if len(s_exp) == 0:
+                            print('result not ready: ', exp_path)
+                        for line in s_exp:
+                            line = './model_dir/' + line.strip().split('./model_dir/')[-1]
+                            f_result.write(line + '\n')
                 else:
                     print(f'File not exists: {exp_path}')
 f.close()
