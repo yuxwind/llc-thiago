@@ -221,6 +221,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument    ('-i', '--input'                                  , help = 'path of the input dat file'           , default='./weight_files/XOR.dat')
 ap.add_argument    ('-a', '--approx'           , action='store_true'  , help = 'use approx algorithm for calculation (default: False)')
 ap.add_argument    ('-b', '--bounds_only_flag' , action='store_true'  , help = 'bounds only flag (default: False)')
+ap.add_argument    ('--preprocess_all_samples' , action='store_true'  , help = 'preprocess the neuron stability using all training samples(default: False)')
+ap.add_argument    ('--preprocess_partial_samples' , action='store_true'  , help = 'preprocess the neuron stability using partial training samples(default: False)')
 ap.add_argument    ('-c', '--classify_flag'    , action='store_false' , help = 'classification flag (default: True)')
 ap.add_argument    ('-m', '--maximum'          , type=float           , help = 'maxima of the nodes (default: 1)'     , default='1')
 ap.add_argument    ('-x', '--xbar_file'                               , help = 'Center of the individual input nodes in csv format. Could be an image of the validation set.')
@@ -459,7 +461,11 @@ def networkcallback(model, where):
 network = args.input[:args.input.rfind("/")] #args.input.split("/")[0]
 print("Network",network)
 print("Accuracy",accuracy)
-f = open("RESULTS.txt","a+")
+#f = open("RESULTS.txt","a+")
+rst_dir = './results'
+exp_name = os.path.basename(os.path.dirname(args.input)
+stable_neurons_path = os.path.join(rst_dir, 'stable_neurons', exp_name + '.npy')
+f = open(os.path.join(rst_dir, exp_name + '.txt'), "a+")
 f.write(network+", "+str(accuracy)+", , ")
 
 timeouts = 0
@@ -491,30 +497,36 @@ elif args.dataset == "CIFAR10":
     data = datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose(transform_list), download=True)
 n = data.__len__()
 max_nonupdates = 10
-if not determine_stability_per_unit:
-  for i in range(n):
-    (img, target) = data.__getitem__(random.randint(0,n))
-    imgf = torch.flatten(img)
-    input = [imgf[j].item() for j in range(nodes_per_layer[0])]
-    for l in range(1,tot_layers):
-        output = []
-        for j in range(nodes_per_layer[l]):
-            g = bias[l-1][j][0] + sum([ weights[l-1][j,k]*input[k] for k in range(nodes_per_layer[l-1]) ])
-            if g>0 and (l,j) in p_lst and remove_p:
-                p_lst.remove((l,j))
-            elif g<0 and (l,j) in q_lst and remove_q:
-                q_lst.remove((l,j))
-            output.append(max(0,g))
-        input = output
-    print(i, len(p_lst), len(q_lst))
-    size = len(p_lst)+len(q_lst)
-    if size < last_size:
-        last_size = size
-        last_update = i
-    if len(p_lst)+len(q_lst) < 1 or i > last_update + max_nonupdates:
-        #print(p_lst, q_lst)
-        print(i, last_update, max_nonupdates)
-        break
+to_preprocess_partial = args.preprocess_paritial_samples
+to_preprocess_all = args.preprocess_all_samples
+if to_preprocess_partial:
+    if not determine_stability_per_unit:
+      for i in range(n):
+        (img, target) = data.__getitem__(random.randint(0,n))
+        imgf = torch.flatten(img)
+        input = [imgf[j].item() for j in range(nodes_per_layer[0])]
+        for l in range(1,tot_layers):
+            output = []
+            for j in range(nodes_per_layer[l]):
+                g = bias[l-1][j][0] + sum([ weights[l-1][j,k]*input[k] for k in range(nodes_per_layer[l-1]) ])
+                if g>0 and (l,j) in p_lst and remove_p:
+                    p_lst.remove((l,j))
+                elif g<0 and (l,j) in q_lst and remove_q:
+                    q_lst.remove((l,j))
+                output.append(max(0,g))
+            input = output
+        print(i, len(p_lst), len(q_lst))
+        size = len(p_lst)+len(q_lst)
+        if size < last_size:
+            last_size = size
+            last_update = i
+        if len(p_lst)+len(q_lst) < 1 or i > last_update + max_nonupdates:
+            #print(p_lst, q_lst)
+            print(i, last_update, max_nonupdates)
+            break
+if to_preprocess_all:
+    #TODO
+    pass  
 remaining = len(p_lst)+len(q_lst)
 
 for i in range(1,run_till_layer_index):
@@ -892,6 +904,7 @@ time_after = time.time()
 f.write(str(time_after-time_before)+",, ")
 f.write(args.formulation+", "+args.feasible+",, "+str(remaining)+",, \n")
 f.close()
+np.save(stable_neurons_path, {'stably_active': stably_active, 'stably_inactive': stably_inactive})
 #print_bounds(tot_layers, nodes_per_layer, bounds)
 
 

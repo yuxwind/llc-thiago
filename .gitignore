@@ -2,7 +2,9 @@ data/
 model_dir/
 logs/
 
+
 slurm-gpu-job.out
+*.tgz
 *.pyc
 #train*.sh
 #run*.sh
