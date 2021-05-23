@@ -416,7 +416,7 @@ def networkcallback(model, where):
     global p, q, i, nodes_per_layer, positive_units, negative_units
     global h
     global lst
-
+    
     if where == GRB.Callback.MIPSOL:
         print("FOUND A SOLUTION")
         p_value = model.cbGetSolution(p)
@@ -627,7 +627,7 @@ for i in range(1,run_till_layer_index):
                     #print(model.Runtime)
 
                 except GurobiError:
-                    print("Error reported")
+                    print("1 Error reported")
 
                 if not timed_out:
 
@@ -762,7 +762,7 @@ for i in range(1,run_till_layer_index):
                     if args.time_limit != None and time.time()-time_before > args.time_limit:
                         timed_out = True
             except GurobiError:
-                    print("Error reported")
+                    print("2 Error reported")
 
             for n in range(nodes_per_layer[i]):
                 if n in positive_units and not n in negative_units:
@@ -867,8 +867,8 @@ if determine_stability_per_network:
                     model.optimize(networkcallback) 
                     if args.time_limit != None and time.time()-time_before > args.time_limit:
                         timed_out = True
-            except GurobiError:
-                    print("Error reported")
+            except GurobiError as e:
+                    print("3 Error reported")
 
             for m in range(1, run_till_layer_index):
               for n in range(nodes_per_layer[m]):
@@ -904,7 +904,11 @@ time_after = time.time()
 f.write(str(time_after-time_before)+",, ")
 f.write(args.formulation+", "+args.feasible+",, "+str(remaining)+",, \n")
 f.close()
+<<<<<<< HEAD
 np.save(stable_neurons_path, {'stably_active': stably_active, 'stably_inactive': stably_inactive})
+=======
+np.save()
+>>>>>>> 285d24f9a5c394f407b70ebcd0e554fae7fe22ed
 #print_bounds(tot_layers, nodes_per_layer, bounds)
 
 
@@ -1075,7 +1079,7 @@ if (show_activations):
 try:
     model.optimize(mycallback)
 except GurobiError:
-    print("Error reported")
+    print("3 Error reported")
 
 # close the activations pattern file
 my_file.close()
