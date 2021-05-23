@@ -460,7 +460,8 @@ network = args.input[:args.input.rfind("/")] #args.input.split("/")[0]
 print("Network",network)
 print("Accuracy",accuracy)
 #f = open("RESULTS.txt","a+")
-f = open(os.path.join('results', os.path.basename(os.path.dirname(args.input)) + '.txt'), "a+")
+rst_dir = './results'
+f = open(os.path.join(rst_dir, os.path.basename(os.path.dirname(args.input)) + '.txt'), "a+")
 f.write(network+", "+str(accuracy)+", , ")
 
 timeouts = 0
@@ -893,6 +894,7 @@ time_after = time.time()
 f.write(str(time_after-time_before)+",, ")
 f.write(args.formulation+", "+args.feasible+",, "+str(remaining)+",, \n")
 f.close()
+np.save()
 #print_bounds(tot_layers, nodes_per_layer, bounds)
 
 
