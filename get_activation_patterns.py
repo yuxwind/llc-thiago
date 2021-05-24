@@ -527,8 +527,10 @@ if to_preprocess_partial:
             print(i, last_update, max_nonupdates)
             break
 if to_preprocess_all:
-    #TODO
-    pass  
+    stable_from_sample_path = os.path.join(os.path.dirname(args.input), 'stable_neurons.npy')
+    stable_from_sample = np.load(stable_from_sample_path, allow_pickle=True)
+    import pdb 
+     
 remaining = len(p_lst)+len(q_lst)
 
 for i in range(1,run_till_layer_index):
