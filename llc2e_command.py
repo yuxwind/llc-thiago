@@ -54,10 +54,11 @@ else:
 dataset = "MNIST" # Can also be "CIFAR10" for gray CIFAR10
 
 train_networks          = False
-test_new_compression    = False
+test_new_compression    = True
+compress_proprocess     = 'all' # all, partial, None
 test_old_compression    = False
 collect_results         = False
-eval_stable_neurons     = True
+eval_stable_neurons     = False
 
 time_limit = 10800 #600
 
@@ -101,7 +102,13 @@ for idx,type in enumerate(types):
                 f.write("python get_activation_patterns.py -b --input " + folder + "/weights.dat" + " --formulation neuron --time_limit " + str(time_limit) + " --dataset " + dataset + '\n')
             
             if test_new_compression:
-                f.write("python get_activation_patterns.py -b --input " + folder + "/weights.dat" + " --formulation network --time_limit " + str(time_limit) + " --dataset " + dataset + '\n')
+                if compress_proprocess == 'all':
+                    f.write("python get_activation_patterns.py -b --input " + folder + "/weights.dat" + " --formulation network --time_limit " + str(time_limit) + " --dataset " + dataset +  ' --preprocess_all_samples ' + '\n')
+                if compress_proprocess == 'partial':
+                    f.write("python get_activation_patterns.py -b --input " + folder + "/weights.dat" + " --formulation network --time_limit " + str(time_limit) + " --dataset " + dataset +  ' --preprocess_partial_samples ' + '\n')
+                if compress_proprocess is None:
+                    f.write("python get_activation_patterns.py -b --input " + folder + "/weights.dat" + " --formulation network --time_limit " + str(time_limit) + " --dataset " + dataset + '\n')
+
             
             if collect_results:
                 exp_path = os.path.join('./results', os.path.basename(folder) + '.txt')

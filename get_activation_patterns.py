@@ -528,8 +528,11 @@ if to_preprocess_partial:
             break
 if to_preprocess_all:
     stable_from_sample_path = os.path.join(os.path.dirname(args.input), 'stable_neurons.npy')
-    stable_from_sample = np.load(stable_from_sample_path, allow_pickle=True)
-    import pdb 
+    stable_from_sample = np.load(stable_from_sample_path, allow_pickle=True).item()
+    q_lst_ = stable_from_sample['stably_active'].squeeze()
+    p_lst_ = stable_from_sample['stably_inactive'].squeeze()
+    q_lst = [(q_lst_[i,0], q_lst_[i,1]) for i in range(q_lst_.shape[0]) ]
+    p_lst = [(p_lst_[i,0], p_lst_[i,1]) for i in range(p_lst_.shape[0]) ]
      
 remaining = len(p_lst)+len(q_lst)
 
