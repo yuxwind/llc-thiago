@@ -503,7 +503,8 @@ to_preprocess_all = args.preprocess_all_samples
 if to_preprocess_partial:
     if not determine_stability_per_unit:
       for i in range(n):
-        (img, target) = data.__getitem__(random.randint(0,n))
+        #(img, target) = data.__getitem__(random.randint(0,n))
+        (img, target) = data.__getitem__(i)
         imgf = torch.flatten(img)
         input = [imgf[j].item() for j in range(nodes_per_layer[0])]
         for l in range(1,tot_layers):

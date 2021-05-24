@@ -70,6 +70,8 @@ parser.add_argument(        '--resume'         , type=str          , default='' 
 parser.add_argument(        '--start-epoch'    , type=int          , default=0           , metavar='N'    , help='manual epoch number (useful on restarts)')
 parser.add_argument(        '--pretrained'     , dest='pretrained' , action='store_true'                  , help='use pre-trained model')
 parser.add_argument('-e'  , '--evaluate'       , dest='evaluate'   , action='store_true'                  , help='evaluate model on validation set')
+parser.add_argument( '--eval-stable'           , dest='eval_stable', action='store_true'                  , help='evaluate the sbability of neurons')
+parser.add_argument('--eval-train-data'    , action='store_true', help='evaluate model on training set')
 parser.add_argument(        '--half'           , dest='half'       , action='store_true'                  , help='use half-precision(16-bit) ')
 parser.add_argument(        '--dataset'        , dest='dataset', type=str         , default='MNIST'     , help='Dataset to be used (default: MNIST)')
 
@@ -128,12 +130,13 @@ def main():
     # criterion = nn.CrossEntropyLoss()
     criterion   = nn.NLLLoss()
 
-    print("===============================================================================");
-    print("Model :")
-    print(model)
-    print("\nCriterion :")
-    print(criterion)
-    print("\n===============================================================================");
+    if not args.evaluate:
+        print("===============================================================================");
+        print("Model :")
+        print(model)
+        print("\nCriterion :")
+        print(criterion)
+        print("\n===============================================================================");
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -148,7 +151,11 @@ def main():
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
-
+    linear_output = {}
+    def get_linear(name):
+        def hook(model, input, output):
+            linear_output[name] = output.detach()
+        return hook
 
     # Transfer model and criterion to default device
     model = model.to(device)
@@ -221,24 +228,35 @@ def main():
 
             if(dataset == "CIFAR10"):
                 val_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                datasets.CIFAR10(root='./data', train=args.eval_train_data,
+                                    transform=transforms.Compose(transform_list), download=True),
                 batch_size=args.test_batch_size, shuffle=False,
                 num_workers=args.workers, pin_memory=True)
 
                 #features, acc = get_features(val_loader, model, criterion)
             elif (dataset == "MNIST"):
                 val_loader = torch.utils.data.DataLoader(
-                datasets.MNIST(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                datasets.MNIST(root='./data', train=args.eval_train_data, 
+                                    transform=transforms.Compose(transform_list), download=True),
                 batch_size=args.test_batch_size, shuffle=False,
                 num_workers=args.workers, pin_memory=True)
             else:
                 print("Unknown Dataset")
-
-
-            acc = validate(val_loader, model, criterion, 1, device, fcnn_flag)
-
+            print('datasize:', len(val_loader.dataset))
+            if not args.eval_stable: 
+                acc = validate(val_loader, model, criterion, 1, device, fcnn_flag)
+            else:
+                print('load checkpoints: ', args.resume)
+                active_states, acc = eval_active_state(val_loader, model, criterion, fcnn_flag)
+                # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
+                stably_active_ind, stably_inactive_ind = find_stable_neurons(active_states)
+                # write the index into the checkpoints' folder
+                np.save(os.path.join(os.path.dirname(args.resume), 'stable_neurons.npy'), {
+                            'stably_active': stably_active_ind.numpy(),
+                            'stably_inactive': stably_inactive_ind.numpy()
+                })
             # Write model weights in CPLEX Format
-            save_weights_in_cplex_format(model, os.path.dirname(args.resume), os.path.basename(args.resume), input_dim, acc, sep)
+            #save_weights_in_cplex_format(model, os.path.dirname(args.resume), os.path.basename(args.resume), input_dim, acc, sep)
 
 
             # Write tensor to csv file for future use in the same directory as save
@@ -688,7 +706,6 @@ def save_weights_in_cplex_format(model, folder, file_name, input_dim, acc, sep):
         my_file.write("];" + "\n")
 
 
-
 ################################################################################
 # Logs features in the files
 ################################################################################
@@ -767,7 +784,112 @@ def get_features(val_loader, model, criterion):
 
     return activations, top1.avg
 
+################################################################################
+# Logs features in the files
+################################################################################
+def eval_active_state(val_loader, model, criterion, fcnn_flag):
 
+    batch_time = AverageMeter()
+    losses = AverageMeter()
+    top1 = AverageMeter()
+
+    shift = 2
+    linear_cnt = model.features.module.__len__() // 3
+    linear_width = [model.features.module[i*3].out_features for i in range(linear_cnt)]
+    active_states = [torch.zeros(len(val_loader.dataset), linear_width[i]) for i in range(linear_cnt)]
+    batch_size = val_loader.batch_size
+        
+    # switch to evaluate mode
+    model.eval()
+
+    end = time.time()
+    for i, (input, target) in enumerate(val_loader):
+        # target = target.cuda(async=True)
+        input_var = torch.autograd.Variable(input).cuda()
+        target_var = torch.autograd.Variable(target).cuda()
+        
+        if args.half:
+            input_var = input_var.half()
+        
+        if fcnn_flag:
+            input_var = input_var.view(input_var.shape[0],-1)
+
+        linear = {}
+        def get_linear(name):
+            def hook(m, i, o):
+                linear[name] = o.detach().cpu()
+            return hook
+
+        # attach hooks
+        hooks = []
+        for layer_i in range(linear_cnt):
+            hooks.append(model.features.module[layer_i].register_forward_hook(get_linear(f'fc{layer_i+1}')))
+
+        # compute output
+        output,_ = model(input_var)
+
+        # remove hooks
+        for layer_i in range(linear_cnt):
+            hooks[layer_i].remove()
+            
+
+        pred = output.max(1, keepdim=True)[1] # get the index of the max log-probability
+
+        start_id = i        * batch_size
+        end_id   = start_id + input_var.shape[0]
+        for layer_i in range(linear_cnt):
+            active_states[layer_i][start_id:end_id] = linear[f'fc{layer_i+1}'] >= 0
+            #import pdb;pdb.set_trace() 
+        loss = criterion(output, target_var)
+
+        output = output.float()
+        loss = loss.float()
+
+        # measure accuracy and record loss
+        prec1 = accuracy(output.data, target_var)[0]
+        losses.update(loss.data, input.size(0))
+        top1.update(prec1, input.size(0))
+
+        # measure elapsed time
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+    print(f' * Prec@1 {top1.avg:.3f}  Elapsed time: {batch_time.sum:.3f}s')
+
+    return active_states, top1.avg
+
+
+################################################################################
+# Get the stable neuron indices from the active states
+################################################################################
+def find_stable_neurons(active_states):
+    stably_active_neurons = []
+    stably_inactive_neurons = []
+    for layer_idx,layer_state in enumerate(active_states):
+        # width is the neuron number in this layer
+        data_size, width = layer_state.shape
+
+        #import pdb;pdb.set_trace()
+        # get the index of stable neurons in this layer 
+        stably_active_idx = (layer_state.sum(dim=0) == data_size).nonzero(as_tuple=False)[:,None] 
+        stably_inactive_idx = (layer_state.sum(dim=0) == 0).nonzero(as_tuple=False)[:,None]
+        
+        # concatenate the layer index
+        stably_active_idx = torch.cat(
+                [torch.ones_like(stably_active_idx) * (layer_idx+1), stably_active_idx], dim=1)
+        stably_inactive_idx = torch.cat(
+                [torch.ones_like(stably_inactive_idx) * (layer_idx+1), stably_inactive_idx], dim=1)
+      
+        print(f'{layer_idx}-th layer: stably_active={stably_active_idx.shape[0]}, stably_inactive={stably_inactive_idx.shape[0]}')
+        stably_active_neurons.append(stably_active_idx) 
+        stably_inactive_neurons.append(stably_inactive_idx) 
+    
+    stably_active_neurons = torch.cat(stably_active_neurons, dim=0)
+    stably_inactive_neurons = torch.cat(stably_inactive_neurons, dim=0)
+    
+    print(f'Overall stably active: {stably_active_neurons.shape[0]}, stably inactive: {stably_inactive_neurons.shape[0]}')
+
+    return stably_active_neurons, stably_inactive_neurons
 
 ################################################################################
 # Writing tensor to csv files
