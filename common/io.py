@@ -9,6 +9,9 @@ import re
 def mkdir(d):
     os.makedirs(d, exist_ok=True)
 
+def mkpath(path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    return path
 
 def _get_suffix(filename):
     """a.jpg -> jpg"""

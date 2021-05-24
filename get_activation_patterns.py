@@ -61,6 +61,7 @@ import re
 
 import random
 
+from common.io import mkpath
 
 accuracy = None
 
@@ -463,9 +464,9 @@ print("Network",network)
 print("Accuracy",accuracy)
 #f = open("RESULTS.txt","a+")
 rst_dir = './results'
-exp_name = os.path.basename(os.path.dirname(args.input)
-stable_neurons_path = os.path.join(rst_dir, 'stable_neurons', exp_name + '.npy')
-f = open(os.path.join(rst_dir, exp_name + '.txt'), "a+")
+exp_name = os.path.basename(os.path.dirname(args.input))
+stable_neurons_path = mkpath(os.path.join(rst_dir, 'stable_neurons', exp_name + '.npy'))
+f = open(mkpath(os.path.join(rst_dir, exp_name + '.txt')), "a+")
 f.write(network+", "+str(accuracy)+", , ")
 
 timeouts = 0
@@ -497,7 +498,7 @@ elif args.dataset == "CIFAR10":
     data = datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose(transform_list), download=True)
 n = data.__len__()
 max_nonupdates = 10
-to_preprocess_partial = args.preprocess_paritial_samples
+to_preprocess_partial = args.preprocess_partial_samples
 to_preprocess_all = args.preprocess_all_samples
 if to_preprocess_partial:
     if not determine_stability_per_unit:
@@ -904,11 +905,7 @@ time_after = time.time()
 f.write(str(time_after-time_before)+",, ")
 f.write(args.formulation+", "+args.feasible+",, "+str(remaining)+",, \n")
 f.close()
-<<<<<<< HEAD
 np.save(stable_neurons_path, {'stably_active': stably_active, 'stably_inactive': stably_inactive})
-=======
-np.save()
->>>>>>> 285d24f9a5c394f407b70ebcd0e554fae7fe22ed
 #print_bounds(tot_layers, nodes_per_layer, bounds)
 
 
