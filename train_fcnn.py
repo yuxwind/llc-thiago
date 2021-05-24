@@ -823,7 +823,7 @@ def eval_active_state(val_loader, model, criterion, fcnn_flag):
         # attach hooks
         hooks = []
         for layer_i in range(linear_cnt):
-            hooks.append(model.features.module[layer_i].register_forward_hook(get_linear(f'fc{layer_i+1}')))
+            hooks.append(model.features.module[layer_i*3].register_forward_hook(get_linear(f'fc{layer_i+1}')))
 
         # compute output
         output,_ = model(input_var)
