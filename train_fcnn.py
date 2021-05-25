@@ -108,7 +108,7 @@ def main():
     device = torch.device("cuda" if use_cuda else "cpu")
     fcnn_flag       = True
     sep             = "," #This is used for separating in weights.dat file
-    save_frequency  = 30
+    save_frequency  = 120
 
 
     # Check the save_dir exists or not
@@ -432,7 +432,7 @@ def main():
                     # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
                     stably_active_ind, stably_inactive_ind = find_stable_neurons(active_states)
                     # write the index into the checkpoints' folder
-                    np.save(os.path.join(args.save_dir, f'stable_neurons-{epoch}.npy'), {
+                    np.save(os.path.join(args.save_dir, f'stable_neurons.npy'), {
                                 'stably_active': stably_active_ind.numpy(),
                                 'stably_inactive': stably_inactive_ind.numpy()
                     })
