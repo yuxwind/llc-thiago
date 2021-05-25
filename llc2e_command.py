@@ -2,7 +2,7 @@ import os
 import sys
 import numpy as np
 
-from common.io import mkpath
+from common.io import mkpath,mkdir
 
 types = ["100-100", "200-200", "400-400", "800-800", "100-100-100", "100-100-100-100", "100-100-100-100-100", '1600-1600'] 
 #types = ["100-100-100-100-100"] 
@@ -53,7 +53,7 @@ else:
     lr_idx = None
     script_path = f'net{type_id}-run_{first_network}_{last_network}.sh'
 
-dataset = "CIFAR10-gray" # Can also be "CIFAR10" for gray CIFAR10, MNIST, CIFAR10-rgb, CIFAR100-rgb
+dataset = "CIFAR100-rgb" # Can also be "CIFAR10" for gray CIFAR10, MNIST, CIFAR10-rgb, CIFAR100-rgb
 
 train_networks          = True
 test_new_compression    = False
@@ -64,18 +64,19 @@ eval_stable_neurons     = False
 
 time_limit = 10800 #600
 
-model_dir = './model_dir'
+model_dir = mkdir(f'./model_dir/{dataset}')
 if test_new_compression or test_old_compression:
     script_dir = 'scripts/compress'
 elif eval_stable_neurons:
     script_dir = 'scripts/eval_stable_neurons'
 elif train_networks:
     script_dir = 'scripts/train'
+script_dir = os.path.join(script_dir, dataset)
 f = open(mkpath(os.path.join(script_dir, script_path)), 'w')
 
-rst_dir = './'
+rst_dir = os.path.join('./', dataset)
 if collect_results:
-    f_result = open(os.path.join(rst_dir, './collected_results.txt'), 'w')
+    f_result = open(mkpath(os.path.join(rst_dir, './collected_results.txt')), 'w')
 
 #####################################################################
 # parse the results of get_active_patterns.py
