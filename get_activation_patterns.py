@@ -61,7 +61,7 @@ import re
 
 import random
 
-from common.io import mkpath
+from common.io import mkpath, mkdir
 
 accuracy = None
 
@@ -463,7 +463,8 @@ network = args.input[:args.input.rfind("/")] #args.input.split("/")[0]
 print("Network",network)
 print("Accuracy",accuracy)
 #f = open("RESULTS.txt","a+")
-rst_dir = './results'
+#rst_dir = './results'
+rst_dir = mkdir('./results-mnist-preprocess_all/counting_results')
 exp_name = os.path.basename(os.path.dirname(args.input))
 stable_neurons_path = mkpath(os.path.join(rst_dir, 'stable_neurons', exp_name + '.npy'))
 f = open(mkpath(os.path.join(rst_dir, exp_name + '.txt')), "a+")

@@ -59,7 +59,7 @@ train_networks          = True
 test_new_compression    = False
 compress_proprocess     = 'all' # all, partial, None
 test_old_compression    = False
-collect_results         = False
+collect_results         = True
 eval_stable_neurons     = False
 
 time_limit = 10800 #600
@@ -126,7 +126,7 @@ for idx,type in enumerate(types):
 
             
             if collect_results:
-                exp_path = os.path.join('./results', os.path.basename(folder) + '.txt')
+                exp_path = os.path.join(result_dir, os.path.basename(folder) + '.txt')
                 if os.path.exists(exp_path):
                     with open(exp_path, 'r') as f_exp:
                         s_exp  = f_exp.readlines()

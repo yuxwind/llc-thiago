@@ -4,6 +4,7 @@ logs/
 model_dir
 results/
 results-minit-wo_preprocess/
+results-mnist-preprocess_all/
 
 slurm-gpu-job.out
 *.tgz

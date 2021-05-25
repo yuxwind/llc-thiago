@@ -8,7 +8,7 @@ from common.io import mkpath
 script_dir = 'scripts/compress/compress-net*.sh'
 scripts = sorted(glob.glob(script_dir))
 print(scripts)
-ind = int(sys.argv[1])
+ind = int(sys.argv[1]) -  1
 script = scripts[ind]
 
 env = "GRB_LICENSE_FILE=~/gurobi-license/`sh ~/get_uname.sh`/gurobi.lic "
