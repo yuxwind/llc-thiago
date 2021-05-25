@@ -9,7 +9,8 @@ info = 'train/CIFAR100-rgb'
 
 script_dir = f'scripts/{info}/net*.sh'
 scripts = sorted(glob.glob(script_dir))
-print(scripts)
+for i, s in enumerate(scripts):
+    print(i+1, s)
 ind = int(sys.argv[1]) -  1
 script = scripts[ind]
 
