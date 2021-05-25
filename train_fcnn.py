@@ -53,7 +53,7 @@ parser.add_argument( '--arch', metavar='ARCH', default='fcnn1',
                     help='model architecture: ' + ' | '.join(model_names) +
                     ' (default: fcnn1)')
 
-parser.add_argument('-j'  , '--workers'        , type=int        , default=4             , metavar='N'    , help='number of data loading workers (default: 4)')
+parser.add_argument('-j'  , '--workers'        , type=int        , default=2             , metavar='N'    , help='number of data loading workers (default: 4)')
 parser.add_argument('-b'  , '--batch-size'     , type=int        , default=128            , metavar='N'    , help='mini-batch size (default: 64)')
 parser.add_argument(        '--test-batch-size', type=int        , default=10000         , metavar='T'    , help='input batch size for testing (default: 10000)')
 
