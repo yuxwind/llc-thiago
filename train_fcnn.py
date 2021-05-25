@@ -23,6 +23,7 @@ import os
 import shutil
 import time
 import sys
+from tqdm import tqdm
 
 import torch
 import torch.nn as nn
@@ -114,12 +115,20 @@ def main():
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
-    if(dataset == "CIFAR10"):
+    if(dataset == "CIFAR10-gray"):
         input_dim  = 1024
+        class_num  = 10
     elif (dataset == "MNIST"):
-        input_dim = 784
+        input_dim  = 784
+        class_num  = 10
+    elif (dataset == "CIFAR10-rgb"):
+        input_dim  = 1024 * 3
+        class_num  = 10
+    elif (dataset == "CIFAR100-rgb"):
+        input_dim  = 1024 * 3
+        class_num  = 100
 
-    model = fcnn.__dict__[args.arch](input_dim)
+    model = fcnn.__dict__[args.arch](input_dim, class_num)
 
     model.features = torch.nn.DataParallel(model.features)
 
@@ -164,6 +173,7 @@ def main():
     stddev = args.std_dev
     distbn = torch.distributions.normal.Normal(0, stddev)
 
+    normalize  = transforms.Normalize(mean=[0], std=[1])
     if(dataset == "CIFAR10"):
         print("Running on CIFAR10")
         input_dim  = 1024
@@ -277,10 +287,9 @@ def main():
         #For training mode
 
 
-        if(dataset == "CIFAR10"):
+        if(dataset == "CIFAR10-gray"):
             # Transform list for validation
             transform_list=[transforms.Grayscale(num_output_channels=1), transforms.ToTensor(), normalize]
-
             val_loader = torch.utils.data.DataLoader(
             datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
             batch_size=args.test_batch_size, shuffle=False,
@@ -289,6 +298,26 @@ def main():
             # Transform list for training
             transform_list=[transforms.Grayscale(num_output_channels=1), transforms.ToTensor(), normalize]
 
+        if(dataset == "CIFAR10-rgb"):
+            # Transform list for validation
+            transform_list=[transforms.ToTensor(), normalize]
+            val_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+            batch_size=args.test_batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
+
+            # Transform list for training
+            transform_list=[transforms.ToTensor(), normalize]
+        if(dataset == "CIFAR100-rgb"):
+            # Transform list for validation
+            transform_list=[transforms.ToTensor(), normalize]
+            val_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR100(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+            batch_size=args.test_batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
+
+            # Transform list for training
+            transform_list=[transforms.ToTensor(), normalize]
         elif (dataset == "MNIST"):
             # Transform list for validation
             transform_list=[transforms.ToTensor(), normalize]
@@ -328,9 +357,17 @@ def main():
         print("lr decay gamma     = %.2f" %(lr_decay_gamma))
 
         print("\n\n")
-        if (dataset == "CIFAR10"):
+        transform_train=[
+                    transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
+                    transforms.RandomRotation(10),     #Rotates the image to a specified angel
+                    transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
+                    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Set the color params
+                    ]
+        if (dataset == "CIFAR10-gray"):
+            transform_train.extend([transforms.Grayscale(num_output_channels=1), transforms.ToTensor(), normalize])
             train_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose(transform_list), download=True),
+                datasets.CIFAR10(root='./data', train=True, 
+                    transform=transforms.Compose(transform_train), download=True),
                 batch_size=args.batch_size, shuffle=True,
                 num_workers=args.workers, pin_memory=True)
         elif (dataset == "MNIST"):
@@ -338,9 +375,23 @@ def main():
                 datasets.MNIST(root='./data', train=True, transform=transforms.Compose(transform_list), download=True),
                 batch_size=args.batch_size, shuffle=True,
                 num_workers=args.workers, pin_memory=True)
+        elif (dataset == 'CIFAR10-rgb'):
+            transform_train.extend([transforms.ToTensor(), normalize])
+            train_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR10(root='./data', train=True, 
+                    transform=transforms.Compose(transform_train), download=True),
+                batch_size=args.batch_size, shuffle=True,
+                num_workers=args.workers, pin_memory=True)
+        elif (dataset == 'CIFAR100-rgb'): 
+            transform_train.extend([transforms.ToTensor(), normalize])
+            train_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR100(root='./data', train=True, 
+                    transform=transforms.Compose(transform_train), download=True),
+                batch_size=args.batch_size, shuffle=True,
+                num_workers=args.workers, pin_memory=True)
         else:
             print("Unknown Dataset")
-
+        #import pdb;pdb.set_trace()
         # Optimizer
         optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum,  weight_decay=args.wd)
 
@@ -352,16 +403,18 @@ def main():
             criterion.half()
 
         # Start training
-        for epoch in range(args.start_epoch, args.epochs):
-
-            # adjust the learning rate
-            if (dataset == "CIFAR10"):
-                scheduler.step()
-                #adjust_learning_rate(optimizer, epoch)
-            elif (dataset == "MNIST"):
-                scheduler.step()
-            else:
-                print("Unknown Dataset")
+        for epoch in tqdm(range(args.start_epoch, args.epochs)):
+            
+            #TODO: adjust for the CIFAR10-rgb, cifar100-rgb 
+            scheduler.step()
+            ## adjust the learning rate
+            #if (dataset == "CIFAR10"):
+            #    scheduler.step()
+            #    #adjust_learning_rate(optimizer, epoch)
+            #elif (dataset == "MNIST"):
+            #    scheduler.step()
+            #else:
+            #    print("Unknown Dataset")
 
             # train for one epoch
             train(train_loader, model, criterion, optimizer, epoch,  device, fcnn_flag, args)
@@ -374,6 +427,15 @@ def main():
                 # Stop training it further. Saves some time especially with adversarial training.
                 if (epoch > 0 and dataset == "MNIST" and prec1 < 12):
                     sys.exit("Model DNC!!!")
+                if args.eval_stable:
+                    active_states, acc = eval_active_state(train_loader, model, criterion, fcnn_flag)
+                    # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
+                    stably_active_ind, stably_inactive_ind = find_stable_neurons(active_states)
+                    # write the index into the checkpoints' folder
+                    np.save(os.path.join(args.save_dir, f'stable_neurons-{epoch}.npy'), {
+                                'stably_active': stably_active_ind.numpy(),
+                                'stably_inactive': stably_inactive_ind.numpy()
+                    })
 
             # remember best prec@1
             is_best = prec1 > best_prec1
@@ -408,10 +470,9 @@ def train(train_loader, model, criterion, optimizer, epoch,  device, fcnn_flag, 
     end = time.time()
 
     for i, (data, target) in enumerate(train_loader):
-
+        #import pdb;pdb.set_trace()
         # measure data loading time
         data_time.update(time.time() - end)
-
         # Send the data and label to the device
         data, target = data.to(device), target.to(device)
 
