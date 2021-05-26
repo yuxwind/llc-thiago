@@ -18,4 +18,4 @@ env = "GRB_LICENSE_FILE=~/gurobi-license/`sh ~/get_uname.sh`/gurobi.lic "
 log = mkpath(os.path.join(f"logs/{info}/{os.path.basename(script).replace('.sh', '.log')}"))
 
 print(f"{log}")
-os.system(f"{env} sh {script} > {log} 2>&1 &")
+#os.system(f"{env} sh {script} > {log} 2>&1 &")

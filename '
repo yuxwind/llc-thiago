@@ -1,0 +1,66 @@
+import os
+import sys
+from glob import glob
+
+####################################################
+# progress: if the model path starts with 
+#   #: training is done
+#   
+####################################################
+
+TRAIN       = '#:'      # training is done
+AP          = '#ap:'    # couting stable with preprocessing all training samples is done
+NP          = '#np:'    # couting stable without preprocessing is done
+#PP         = '#pp:'    # couting stable with preprocessing partial training sampls is done
+
+model_dir   = './model_dir'
+rst_dir     = './results/'
+cnt_rst     = 'counting_results/'
+stb_neuron  = 'stable_neurons/'
+
+# results of counting stable neurons with/w.o preprecessing
+NOPRE       = 'results-no_preprocess'
+ALLPRE      = 'results-preprocess_all'
+#PARTPRE     = 'results-preprocess_partial'
+
+# Get experiment list for four datasets
+mnist_track_list = open('track_mnist.txt', 'r').readlines()
+cifar10_gray_track_list = open('track_cifar10-gray.txt', 'r').readlines()
+cifar10_rgb_track_list = open('track_cifar10-rgb.txt', 'r').readlines()
+cifar100_rgb_track_list = open('track_cifar100-rgb.txt', 'r').readlines()
+
+
+# check whether training is done
+def check_training(model_name):
+    dataset = os.path.basename(model_name).split('_')[1]
+    model_path = os.path.join(model_dir, dataset, os.path.basename(model_name), 'checkpoint_120.tar')
+    if os.path.exists(model_path):
+        return True
+    else:
+        return False
+
+# check whether MILP with preprocessing all training samples is done
+def check_AP(model_name):
+    dataset = os.path.basename(model_name).split('_')[1]
+    rst_path = os.path.join(rst_dir, dataset, ALLPRE, cnt_rst, os.path.basename(model_name) + '.txt')
+    if not os.path.exists(rst_path):
+        return False
+    rst = [for l.stript() in open(rst_path, 'r').readlines()]
+    for l in rst:
+        if 'relaxation' in l:
+            return True
+    return False
+
+# check whether MILP without preprocessing is done
+def check_NP(model_name):
+    dataset = os.path.basename(model_name).split('_')[1]
+    rst_path = os.path.join(rst_dir, dataset, NOPRE, cnt_rst, os.path.basename(model_name) + '.txt')
+    if not os.path.exists(rst_path):
+        return False
+    rst = [for l.stript() in open(rst_path, 'r').readlines()]
+    for l in rst:
+        if 'relaxation' in l:
+            return True
+    return False
+
+

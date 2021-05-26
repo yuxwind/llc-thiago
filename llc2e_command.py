@@ -53,7 +53,7 @@ else:
     lr_idx = None
     script_path = f'net{type_id}-run_{first_network}_{last_network}.sh'
 
-dataset = "CIFAR10-rgb" # Can also be "CIFAR10" for gray CIFAR10, MNIST, CIFAR10-rgb, CIFAR100-rgb
+dataset = "MNIST" # Can also be "CIFAR10" for gray CIFAR10, MNIST, CIFAR10-rgb, CIFAR100-rgb
 
 train_networks          = True
 test_new_compression    = False
