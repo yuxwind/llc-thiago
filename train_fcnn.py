@@ -160,12 +160,6 @@ def main():
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
-    linear_output = {}
-    def get_linear(name):
-        def hook(model, input, output):
-            linear_output[name] = output.detach()
-        return hook
-
     # Transfer model and criterion to default device
     model = model.to(device)
     criterion = criterion.to(device)
@@ -428,6 +422,7 @@ def main():
                 if (epoch > 0 and dataset == "MNIST" and prec1 < 12):
                     sys.exit("Model DNC!!!")
                 if args.eval_stable:
+                    print('===========eval_stable============')
                     active_states, acc = eval_active_state(train_loader, model, criterion, fcnn_flag)
                     # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
                     stably_active_ind, stably_inactive_ind = find_stable_neurons(active_states)
@@ -900,7 +895,6 @@ def eval_active_state(val_loader, model, criterion, fcnn_flag):
         end_id   = start_id + input_var.shape[0]
         for layer_i in range(linear_cnt):
             active_states[layer_i][start_id:end_id] = linear[f'fc{layer_i+1}'] >= 0
-            #import pdb;pdb.set_trace() 
         loss = criterion(output, target_var)
 
         output = output.float()

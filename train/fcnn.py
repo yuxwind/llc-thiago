@@ -45,7 +45,6 @@ class FCNN(nn.Module):
         #a = self.th(x)
         a = x
         #x = self.smax(x)
-
         return F.log_softmax(x, dim=1), a
 
 
