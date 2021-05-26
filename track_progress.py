@@ -87,7 +87,8 @@ def start_training(model_name):
     log = mkpath(f"logs/training/{os.path.basename(model_name)}.log")
     #os.system(f"{env} {cmd} > {log} 2>&1 & ")
     print(log)
-    return f"{env} {cmd} > {log} 2>&1 & "
+    return cmd
+    #return f"{env} {cmd} > {log} 2>&1 & "
 
 def start_AP(model_name):
     time_limit = 10800
@@ -134,8 +135,8 @@ else:
 
 todo = []
 unknown = []
-f_todo = open(f'./track_progress/todo_{ACTIONS[aid]}_{dataset}.txt', 'w')
-f_unknow = open(f'./track_progress/unknow_{ACTIONS[aid]}_{dataset}.txt', 'w')
+f_todo = open(f'./track_progress/todo_{ACTIONS[aid]}_{dataset}.sh', 'w')
+f_unknow = open(f'./track_progress/unknow_{ACTIONS[aid]}_{dataset}.sh', 'w')
 
 # example of tag format: TR-D, AP-D, NP-X 
 for i,l in enumerate(track_list):

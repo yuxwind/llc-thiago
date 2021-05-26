@@ -2,7 +2,7 @@ import os
 import sys
 
 
-from common.io import mkpath
+from common.io import mkpath,mkdir
 
 todo    = sys.argv[1]
 cmds    = open(todo, 'r').readlines()
@@ -15,15 +15,15 @@ end     = min(start + cnt, len(cmds))
 sub  = cmds[start:end]
 
 name = os.path.basename(todo).split('.')[0] + f'.{start}_{end}'
-script  = os.path.join('./scripts/todo', name + '.sh')
-log  = os.path.join(f'./logs/{log}.log')
+script  = mkpath(os.path.join('./scripts/todo', name + '.sh'))
+log  = os.path.join(f'./logs/{name}.log')
 
 env = "GRB_LICENSE_FILE=~/gurobi-license/`sh ~/get_uname.sh`/gurobi.lic "
-env = ''
+env = 'CUDA_VISIBLE_DEVICES=0'
 
-open(out, 'w') as f:
+with open(script, 'w') as f:
     for l in sub:
-        f.write(l+'\n')
+        f.write(l)
 print(log)
 #os.system(f"{env} sh {script} > {log} 2>&1 &")
 print(f"{env} sh {script} > {log} 2>&1 &")
