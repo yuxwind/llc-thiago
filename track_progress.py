@@ -3,11 +3,13 @@ import sys
 from glob import glob
 
 from common.io import mkdir,mkpath
+from common.time import today_, now_
 from cfg import type_arch 
 ####################################################
-# progress: if the model path starts with 
-#   #: training is done
-#   
+# Track progress of the models: whether the training is done, whether the MILP is done
+# Ouput a todo list for the unfinished tasks:
+#       python track_progress.py cifar10-rgb tr 0  # check training
+#       python track_progress.py cifar10-gray ap 0 # check MILP with preprocessing using all training samples 
 ####################################################
 
 TRAIN       = 'TR'      # training
@@ -98,7 +100,7 @@ def start_AP(model_name):
     dataset = terms[1]
     folder = mkdir(os.path.join(model_dir, dataset, os.path.basename(model_name)))
 
-    cmd = "python get_activation_patterns.py -b --input " + folder + "/weights.dat" + " --formulation network --time_limit " + str(time_limit) + " --dataset " + dataset
+    cmd = "python get_activation_patterns.py -b --input " + folder + "/weights.dat" + " --formulation network --time_limit " + str(time_limit) + " --dataset " + dataset + " --preprocess_all_samples"
     return cmd
 
 def start_NP(model_name):
@@ -135,26 +137,43 @@ else:
 
 todo = []
 unknown = []
-f_todo = open(f'./track_progress/todo_{ACTIONS[aid]}_{dataset}.sh', 'w')
-f_unknow = open(f'./track_progress/unknow_{ACTIONS[aid]}_{dataset}.sh', 'w')
+track_dir = './track_progress'
+name_todo = f'todo_{ACTIONS[aid]}_{dataset}.sh'
+name_unknown = f'unknow_{ACTIONS[aid]}_{dataset}.sh'
+path_todo = os.path.join(track_dir, name_todo)
+path_unknown = os.path.join(track_dir, name_unknown)
+now = now_()
+if os.path.exists(path_todo):
+    print('Path exists: ', path_todo)
+    print('Rename to ', os.path.join(track_dir, now, name_todo))
+    os.rename(path_todo, mkpath(os.path.join(track_dir, now, name_todo)))
+if os.path.exists(path_unknown):
+    print('Path exists: ', path_unknown)
+    print('Rename to ', os.path.join(track_dir, now, name_unknown))
+    os.rename(path_unknown, mkpath(os.path.join(track_dir, now, name_unknown)))
+
+f_todo   = open(path_todo, 'w')
+f_unknow = open(path_unknown, 'w')
 
 # example of tag format: TR-D, AP-D, NP-X 
 for i,l in enumerate(track_list):
     arrs = l.strip().split('#')
     exp = arrs[-1]
     if len(arrs) == 2:
-        prev_tag = arrs[1].split(',')
+        prev_tag = arrs[0].split(',')
     else:
-        prev_tag = [f'{TRAIN}-X', f'{AP}-X', f'{NP}-X']
+        prev_tag = [f'{TRAIN}-{UNKNOWN}', f'{AP}-{UNKNOWN}', f'{NP}-{UNKNOWN}']
     prev_state = prev_tag[aid].split('-')[1]
     
     if prev_state != f'{DONE}':
+        tr_done = check_training(exp)
         if aid == 0:
-            done = check_training(exp)
+            done = tr_done
         elif aid == 1:
             done = check_AP(exp)
-        else:
+        elif aid == 2:
             done = check_NP(exp)
+
         if done is None:
             cur_state = 'X'
             unknow.append(exp)
@@ -165,7 +184,11 @@ for i,l in enumerate(track_list):
                 cur_state = 'R'
             else:
                 cur_state = 'U'
-            todo.append(exp)
+            if aid == 0:
+                todo.append(exp)
+            else:
+                if tr_done:
+                    todo.append(exp)
         prev_tag[aid] = f"{ACTIONS[aid]}-{cur_state}"
 
         cur_exp = ','.join(prev_tag) + '#' + exp
@@ -178,7 +201,13 @@ with open(p_track, 'w') as f:
         f.write(l+'\n')
 
 for l in todo:
-    f_todo.write(start_training(l) + '\n')
+    if aid == 0:
+        f_todo.write(start_training(l) + '\n')
+    elif aid == 1:
+        f_todo.write(start_AP(l) + '\n')
+    elif aid == 2:
+        f_todo.write(start_NP(l) + '\n')
+
 for l in unknown:
-    f_unknown.wreit(l + '\n')
+    f_unknown.write(l + '\n')
  

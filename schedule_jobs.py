@@ -1,8 +1,12 @@
 import os
 import sys
 
-
 from common.io import mkpath,mkdir
+
+################################################################
+# 
+################################################################
+
 
 todo    = sys.argv[1]
 cmds    = open(todo, 'r').readlines()
@@ -18,9 +22,11 @@ name = os.path.basename(todo).split('.')[0] + f'.{start}_{end}'
 script  = mkpath(os.path.join('./scripts/todo', name + '.sh'))
 log  = os.path.join(f'./logs/{name}.log')
 
-#env = "GRB_LICENSE_FILE=~/gurobi-license/`sh ~/get_uname.sh`/gurobi.lic "
+# on cade
+env = "GRB_LICENSE_FILE=~/gurobi-license/`sh ~/get_uname.sh`/gurobi.lic "
+# on multiple GPU envs
 #env = 'CUDA_VISIBLE_DEVICES=0'
-env = sys.argv[4]
+#env = sys.argv[4]
 
 with open(script, 'w') as f:
     for l in sub:

@@ -495,8 +495,10 @@ normalize = transforms.Normalize(mean=[0], std=[1]) #Images are already loaded i
 transform_list = [transforms.ToTensor(), normalize]
 if args.dataset == "MNIST": 
     data = datasets.MNIST(root='./data', train=True, transform=transforms.Compose(transform_list), download=True)
-elif args.dataset == "CIFAR10":
+elif args.dataset == "CIFAR10-gray" or args.dataset == "CIFAR10-rgb":
     data = datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose(transform_list), download=True)
+elif args.dataset == "CIFAR100-rgb":
+    data = datasets.CIFAR100(root='./data', train=True, transform=transforms.Compose(transform_list), download=True)
 n = data.__len__()
 max_nonupdates = 10
 to_preprocess_partial = args.preprocess_partial_samples

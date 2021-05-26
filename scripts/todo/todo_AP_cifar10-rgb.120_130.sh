@@ -1,0 +1,10 @@
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_800-800_0.00015000000000000001_0001/weights.dat --formulation network --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_800-800_0.00015000000000000001_0002/weights.dat --formulation network --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_800-800_0.00015000000000000001_0005/weights.dat --formulation network --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100-100_0.0_0001/weights.dat --formulation network --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100-100_0.0_0002/weights.dat --formulation network --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100-100_0.0_0003/weights.dat --formulation network --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100-100_0.0_0004/weights.dat --formulation network --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100-100_0.0_0005/weights.dat --formulation network --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100-100_2.5e-05_0001/weights.dat --formulation network --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100-100_2.5e-05_0002/weights.dat --formulation network --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
