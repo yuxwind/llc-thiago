@@ -9,7 +9,11 @@ from common.io import mkpath,mkdir
 
 
 todo    = sys.argv[1]
+#todo = 'scripts/compress/MNIST/small_netNone-run_1_3.sh'
 cmds    = open(todo, 'r').readlines()
+#todo2 = 'scripts/compress/MNIST/large_netNone-run_1_3.sh'
+#cmds2    = open(todo2, 'r').readlines()
+
 
 ind     = int(sys.argv[2])
 cnt     = int(sys.argv[3])
@@ -31,6 +35,8 @@ env = "GRB_LICENSE_FILE=~/gurobi-license/`sh ~/get_uname.sh`/gurobi.lic "
 with open(script, 'w') as f:
     for l in sub:
         f.write(l)
+    #for l in cmds2[start:end]:
+    #    f.write(l)
 print(f"{env} sh {script} > {log} 2>&1 &")
 print(log)
 os.system(f"{env} sh {script} > {log} 2>&1 &")

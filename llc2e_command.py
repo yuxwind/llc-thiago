@@ -3,8 +3,9 @@ import sys
 import numpy as np
 
 from common.io import mkpath,mkdir
-
-types = ["100-100", "200-200", "400-400", "800-800", "100-100-100", "100-100-100-100", "100-100-100-100-100", '1600-1600'] 
+types = ["100-100", "200-200", "100-100-100", "400-400"] 
+types = ["100-100-100-100-100",  "25-25-25", "800-800", "100-100-100-100", ] 
+#types = ["100-100", "200-200", "400-400", "800-800", "100-100-100", "100-100-100-100", "100-100-100-100-100", '1600-1600'] 
 #types = ["100-100-100-100-100"] 
 type_arch = {"25-25": "fcnn2", 
                 "50-50": "fcnn2a", 
@@ -24,7 +25,8 @@ c0 = np.arange(0,0.00021, 0.000025)
 c1 = np.arange(0,0.00041, 0.000025)
 l1_reg = { "25-25": [ 0.001 ], 
             "50-50": [ 0.0, 0.00015, 0.0003 ], 
-            "100-100": c1,           
+            "100-100": c0,           
+            #"100-100": c1,           
             "200-200": c0, 
             "400-400": c0,
             "800-800": c0, 
@@ -45,20 +47,21 @@ if len(sys.argv) >= 4:
     last_network = int(sys.argv[3])#5 
 else:
     first_network = 1
-    last_network = 5 
+    #last_network = 5 
+    last_network = 3 
 if len(sys.argv) >= 5:
     lr_idx = [int(s) for s in sys.argv[4].strip().split(',')]
-    script_path = f'./net{type_id}-run_{first_network}_{last_network}-{sys.argv[4].strip()}.sh'
+    script_path = f'net{type_id}-run_{first_network}_{last_network}-{sys.argv[4].strip()}.sh'
 else:
     lr_idx = None
     script_path = f'net{type_id}-run_{first_network}_{last_network}.sh'
 
 dataset = "MNIST" # Can also be "CIFAR10" for gray CIFAR10, MNIST, CIFAR10-rgb, CIFAR100-rgb
 
-train_networks          = True
+train_networks          = False
 test_new_compression    = False
 compress_proprocess     = 'all' # all, partial, None
-test_old_compression    = False
+test_old_compression    = True
 collect_results         = False
 eval_stable_neurons     = False
 
@@ -72,7 +75,7 @@ elif eval_stable_neurons:
 elif train_networks:
     script_dir = 'scripts/train'
 script_dir = os.path.join(script_dir, dataset)
-f = open(mkpath(os.path.join(script_dir, script_path)), 'w')
+f = open(mkpath(os.path.join(script_dir, 'large_' + script_path)), 'w')
 
 rst_dir = os.path.join('./', dataset)
 if collect_results:

@@ -463,10 +463,24 @@ network = args.input[:args.input.rfind("/")] #args.input.split("/")[0]
 print("Network",network)
 print("Accuracy",accuracy)
 #f = open("RESULTS.txt","a+")
-#rst_dir = './results'
-rst_dir = mkdir('./results-mnist-preprocess_all/counting_results')
+
+NOPRE       = 'results-no_preprocess'
+ALLPRE      = 'results-preprocess_all'
+PARTPRE     = 'results-preprocess_partial'
+rst_dir     = './results/'
+cnt_rst     = 'counting_results/'
+stb_neuron  = 'stable_neurons/'
+
+if args.preprocess_all_samples:
+    tag = ALLPRE
+elif args.preprocess_partial_samples:
+    tag = PARTPRE
+else:
+    tag = NOPRE
+
+rst_dir = mkdir(os.path.join(rst_dir, args.dataset, tag, cnt_rst))
 exp_name = os.path.basename(os.path.dirname(args.input))
-stable_neurons_path = mkpath(os.path.join(rst_dir, 'stable_neurons', exp_name + '.npy'))
+stable_neurons_path = mkpath(os.path.join(rst_dir, args.dataset, tag, stb_neuron, exp_name + '.npy'))
 f = open(mkpath(os.path.join(rst_dir, exp_name + '.txt')), "a+")
 f.write(network+", "+str(accuracy)+", , ")
 

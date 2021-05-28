@@ -4,7 +4,7 @@ from glob import glob
 
 from common.io import mkdir,mkpath
 from common.time import today_, now_
-from cfg import type_arch 
+from cfg import type_arch,large_types 
 ####################################################
 # Track progress of the models: whether the training is done, whether the MILP is done
 # Ouput a todo list for the unfinished tasks:
@@ -16,11 +16,12 @@ TRAIN       = 'TR'      # training
 AP          = 'AP'      # couting stable with preprocessing all training samples
 NP          = 'NP'      # couting stable without preprocessing
 #PP         = '#pp:'    # couting stable with preprocessing partial training sampls
+PRE         = 'PRE'     # counting stable from training samples
 RUN         = 'R'       # it is running
 DONE        = 'D'       # it is done
 UNDONE      = 'U'       # it is not finished
 UNKNOWN     = 'X'       # it is unknown
-ACTIONS     = [TRAIN, AP, NP]
+ACTIONS     = [TRAIN, AP, NP, PRE]
 
 model_dir   = './model_dir'
 rst_dir     = './results/'
@@ -39,9 +40,9 @@ p_cifar10_rgb = 'track_progress/track_cifar10-rgb.txt'
 p_cifar100_rgb = 'track_progress/track_cifar100-rgb.txt'
 
 mnist_track_list = open(p_mnist, 'r').readlines()
-cifar10_gray_track_list = open(p_cifar10_gray, 'r').readlines()
-cifar10_rgb_track_list = open(p_cifar10_rgb, 'r').readlines()
-cifar100_rgb_track_list = open(p_cifar100_rgb, 'r').readlines()
+cifar10_gray_track_list = open(p_cifar10_gray + '.orig', 'r').readlines()
+cifar10_rgb_track_list = open(p_cifar10_rgb + '.orig', 'r').readlines()
+cifar100_rgb_track_list = open(p_cifar100_rgb + '.orig', 'r').readlines()
 
 
 # check whether training is done
@@ -53,13 +54,30 @@ def check_training(model_name):
     else:
         return False
 
+def check_PRE(model_name):
+    dataset = os.path.basename(model_name).split('_')[1]
+    model_path = os.path.join(model_dir, dataset, os.path.basename(model_name), 'stable_neurons.npy')
+    if os.path.exists(model_path):
+        return True
+    else:
+        return False
+def start_PRE(model_name):
+    dataset = os.path.basename(model_name).split('_')[1]
+    arch = os.path.basename(model_name).split('_')[2]
+    model_dir = os.path.join(model_dir, dataset, os.path.basename(model_name))
+    model_path = os.path.join(model_dir, 'stable_neurons.npy')
+    if not os.path.exists(model_path):
+        os.system("python train_fcnn.py --arch " + type_arch[type] + " --resume " +
+            os.path.join(model_path, 'checkpoint_120.tar') + 
+            "  -e --eval-stable --eval-train-data" + " --dataset " + dataset + '\n')
+
 # check whether MILP with preprocessing all training samples is done
 def check_AP(model_name):
     dataset = os.path.basename(model_name).split('_')[1]
     rst_path = os.path.join(rst_dir, dataset, ALLPRE, cnt_rst, os.path.basename(model_name) + '.txt')
     if not os.path.exists(rst_path):
         return False
-    rst = [l.stript() for l in open(rst_path, 'r').readlines()]
+    rst = [l.strip() for l in open(rst_path, 'r').readlines()]
     for l in rst:
         if 'relaxation' in l:
             return True
@@ -132,6 +150,8 @@ elif action == 'ap':
     aid = 1
 elif action == 'np':
     aid = 2
+elif action == 'pre':
+    aid = 3
 else:
     print('Unknown action')
 
@@ -153,16 +173,17 @@ if os.path.exists(path_unknown):
     os.rename(path_unknown, mkpath(os.path.join(track_dir, now, name_unknown)))
 
 f_todo   = open(path_todo, 'w')
-f_unknow = open(path_unknown, 'w')
+f_unknown = open(path_unknown, 'w')
 
 # example of tag format: TR-D, AP-D, NP-X 
 for i,l in enumerate(track_list):
     arrs = l.strip().split('#')
     exp = arrs[-1]
+    arch = os.path.basename(exp).split('_')[2]
     if len(arrs) == 2:
         prev_tag = arrs[0].split(',')
     else:
-        prev_tag = [f'{TRAIN}-{UNKNOWN}', f'{AP}-{UNKNOWN}', f'{NP}-{UNKNOWN}']
+        prev_tag = [f'{TRAIN}-{UNKNOWN}', f'{AP}-{UNKNOWN}', f'{NP}-{UNKNOWN}', f'{PRE}-{UNKNOWN}']
     prev_state = prev_tag[aid].split('-')[1]
     
     if prev_state != f'{DONE}':
@@ -173,10 +194,15 @@ for i,l in enumerate(track_list):
             done = check_AP(exp)
         elif aid == 2:
             done = check_NP(exp)
+        elif aid == 3:
+            done = check_PRE(exp)
+            start_PRE(exp)
 
         if done is None:
             cur_state = 'X'
-            unknow.append(exp)
+            #unknown.append(exp)
+            todo.append(exp)
+
         elif done:
             cur_state = 'D'
         else:
@@ -187,6 +213,7 @@ for i,l in enumerate(track_list):
             if aid == 0:
                 todo.append(exp)
             else:
+                #if tr_done and arch in large_types:
                 if tr_done:
                     todo.append(exp)
         prev_tag[aid] = f"{ACTIONS[aid]}-{cur_state}"
@@ -196,7 +223,6 @@ for i,l in enumerate(track_list):
         print(cur_exp)
         
 with open(p_track, 'w') as f:
-    import pdb;pdb.set_trace()
     for l in track_list:
         f.write(l+'\n')
 
