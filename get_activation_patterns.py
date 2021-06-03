@@ -467,16 +467,20 @@ print("Accuracy",accuracy)
 NOPRE       = 'results-no_preprocess'
 ALLPRE      = 'results-preprocess_all'
 PARTPRE     = 'results-preprocess_partial'
+OLD         = 'results-old-approach'
 rst_dir     = './results/'
 cnt_rst     = 'counting_results/'
 stb_neuron  = 'stable_neurons/'
 
-if args.preprocess_all_samples:
-    tag = ALLPRE
-elif args.preprocess_partial_samples:
-    tag = PARTPRE
+if args.formulation == 'neuron':
+    tag = OLD
 else:
-    tag = NOPRE
+    if args.preprocess_all_samples:
+        tag = ALLPRE
+    elif args.preprocess_partial_samples:
+        tag = PARTPRE
+    else:
+        tag = NOPRE
 
 rst_dir = mkdir(os.path.join(rst_dir, args.dataset, tag, cnt_rst))
 exp_name = os.path.basename(os.path.dirname(args.input))
@@ -548,9 +552,12 @@ if to_preprocess_all:
     stable_from_sample = np.load(stable_from_sample_path, allow_pickle=True).item()
     q_lst_ = stable_from_sample['stably_active'].squeeze()
     p_lst_ = stable_from_sample['stably_inactive'].squeeze()
+    if len(q_lst_.shape) == 1:
+        q_lst_ = q_lst_[None,:]
+    if len(p_lst_.shape) == 1:
+        p_lst_ = p_lst_[None,:]
     q_lst = [(q_lst_[i,0], q_lst_[i,1]) for i in range(q_lst_.shape[0]) ]
     p_lst = [(p_lst_[i,0], p_lst_[i,1]) for i in range(p_lst_.shape[0]) ]
-     
 remaining = len(p_lst)+len(q_lst)
 
 for i in range(1,run_till_layer_index):
@@ -907,14 +914,16 @@ if determine_stability_per_network:
                 print("Layer %d Completed..." %(m))
 
                 matrix_list = []
+                import pdb;pdb.set_trace()
                 for j in stably_active[m]:
                   matrix_list.append([weights[m-1][j,k] for k in range(nodes_per_layer[m-1])])
+                  print()
                 print("Active: ", stably_active[m])
-
+                import pdb;pdb.set_trace()
                 #import numpy
                 #rank = numpy.linalg.matrix_rank(numpy.array(matrix_list))
-                #rank = torch.linalg.matrix_rank(torch.tensor(matrix_list))
-                rank = len(stably_active[m]) # torch.matrix_rank(torch.tensor(matrix_list))
+                rank = torch.linalg.matrix_rank(torch.tensor(matrix_list))
+                #rank = len(stably_active[m]) # torch.matrix_rank(torch.tensor(matrix_list))
 
                 print("Active rank: ", rank, "out of", len(stably_active[m]))
                 print("Inactive: ", stably_inactive[m])
