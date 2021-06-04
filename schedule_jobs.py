@@ -27,10 +27,10 @@ script  = mkpath(os.path.join('./scripts/todo', name + '.sh'))
 log  = os.path.join(f'./logs/{name}.log')
 
 # on cade
-env = "GRB_LICENSE_FILE=~/gurobi-license/`sh ~/get_uname.sh`/gurobi.lic "
+#env = "GRB_LICENSE_FILE=~/gurobi-license/`sh ~/get_uname.sh`/gurobi.lic "
 # on multiple GPU envs
 #env = 'CUDA_VISIBLE_DEVICES=0'
-#env = sys.argv[4]
+env = sys.argv[4]
 
 with open(script, 'w') as f:
     for l in sub:

@@ -127,8 +127,13 @@ def main():
     elif (dataset == "CIFAR100-rgb"):
         input_dim  = 1024 * 3
         class_num  = 100
-
-    model = fcnn.__dict__[args.arch](input_dim, class_num)
+    
+    if args.arch == 'fcnn_prune':
+        
+        cfg = get_net_width(os.path.dirname(args.resume))
+        model = fcnn.__dict__[args.arch](cfg, input_dim, class_num)
+    else:
+        model = fcnn.__dict__[args.arch](input_dim, class_num)
 
     model.features = torch.nn.DataParallel(model.features)
 
@@ -202,11 +207,24 @@ def main():
             accuracies = []
             examples   = []
 
-            if(dataset == "CIFAR10"):
+            transform_list=[transforms.ToTensor(), normalize]
+            if(dataset == "CIFAR10-gray"):
                 transform_list.append(transforms.Grayscale(num_output_channels=1))
                 val_loader = torch.utils.data.DataLoader(
                 datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
                 batch_size=1, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+            elif(dataset == "CIFAR10-rgb"):
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                batch_size=1, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+            elif(dataset == "CIFAR100-rgb"):
+                # Transform list for validation
+                transform_list=[transforms.ToTensor(), normalize]
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR100(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                batch_size=args.test_batch_size, shuffle=False,
                 num_workers=args.workers, pin_memory=True)
             elif (dataset == "MNIST"):
                 val_loader = torch.utils.data.DataLoader(
@@ -230,7 +248,9 @@ def main():
             else:
                 print("No augmentation used in testing")
 
-            if(dataset == "CIFAR10"):
+            transform_list=[transforms.ToTensor(), normalize]
+            if(dataset == "CIFAR10-gray"):
+                transform_list.append(transforms.Grayscale(num_output_channels=1))
                 val_loader = torch.utils.data.DataLoader(
                 datasets.CIFAR10(root='./data', train=args.eval_train_data,
                                     transform=transforms.Compose(transform_list), download=True),
@@ -238,6 +258,17 @@ def main():
                 num_workers=args.workers, pin_memory=True)
 
                 #features, acc = get_features(val_loader, model, criterion)
+            elif(dataset == "CIFAR10-rgb"):
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                batch_size=1, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+            elif(dataset == "CIFAR100-rgb"):
+                # Transform list for validation
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR100(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                batch_size=args.test_batch_size, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
             elif (dataset == "MNIST"):
                 val_loader = torch.utils.data.DataLoader(
                 datasets.MNIST(root='./data', train=args.eval_train_data, 
@@ -249,6 +280,7 @@ def main():
             print('datasize:', len(val_loader.dataset))
             if not args.eval_stable: 
                 acc = validate(val_loader, model, criterion, 1, device, fcnn_flag)
+                print('acc:', acc)
             else:
                 print('load checkpoints: ', args.resume)
                 active_states, acc = eval_active_state(val_loader, model, criterion, fcnn_flag)
@@ -1103,6 +1135,17 @@ def test_adversarial(model, criterion, device, test_loader, epsilon):
     return final_acc, adv_examples
 
 
+def get_net_width(model_path):
+    ckp_path = os.path.join(model_path, 'pruned_checkpoint_120.tar')
+    if not os.path.exists(ckp_path):
+        print(f'No pruned model for {ckp_path}')
+    ckp = torch.load(ckp_path) 
+    w_names = sorted([name for name in ckp['state_dict'].keys()
+                            if 'weight' in name and 'features' in name])
+    widths = []
+    for name in w_names:
+        widths.append(ckp['state_dict'][name].shape[0])
+    return widths
 
 ################################################################################
 # Sets the learning rate to the initial LR decayed by 2 every 30 epochs.
