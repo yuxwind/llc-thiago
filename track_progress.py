@@ -64,12 +64,11 @@ def check_PRE(model_name):
 def start_PRE(model_name):
     dataset = os.path.basename(model_name).split('_')[1]
     arch = os.path.basename(model_name).split('_')[2]
-    model_dir = os.path.join(model_dir, dataset, os.path.basename(model_name))
-    model_path = os.path.join(model_dir, 'stable_neurons.npy')
-    if not os.path.exists(model_path):
-        os.system("python train_fcnn.py --arch " + type_arch[type] + " --resume " +
-            os.path.join(model_path, 'checkpoint_120.tar') + 
-            "  -e --eval-stable --eval-train-data" + " --dataset " + dataset + '\n')
+    model_root = os.path.join(model_dir, dataset, os.path.basename(model_name))
+    cmd = "python train_fcnn.py --arch " + type_arch[arch] + " --resume " + \
+            os.path.join(model_root, 'checkpoint_120.tar') + \
+            "  -e --eval-stable --eval-train-data" + " --dataset " + dataset
+    return cmd
 
 # check whether MILP with preprocessing all training samples is done
 def check_AP(model_name):
@@ -177,13 +176,19 @@ f_unknown = open(path_unknown, 'w')
 
 # example of tag format: TR-D, AP-D, NP-X 
 for i,l in enumerate(track_list):
+    l = l.strip()
+    if l == '\n' or l == '':
+        continue
     arrs = l.strip().split('#')
     exp = arrs[-1]
     arch = os.path.basename(exp).split('_')[2]
     if len(arrs) == 2:
         prev_tag = arrs[0].split(',')
+        if len(prev_tag) < 4:
+            prev_tag = [f'{TRAIN}-{UNKNOWN}', f'{AP}-{UNKNOWN}', f'{NP}-{UNKNOWN}', f'{PRE}-{UNKNOWN}']
     else:
         prev_tag = [f'{TRAIN}-{UNKNOWN}', f'{AP}-{UNKNOWN}', f'{NP}-{UNKNOWN}', f'{PRE}-{UNKNOWN}']
+    print(aid, prev_tag)
     prev_state = prev_tag[aid].split('-')[1]
     
     if prev_state != f'{DONE}':
@@ -196,7 +201,7 @@ for i,l in enumerate(track_list):
             done = check_NP(exp)
         elif aid == 3:
             done = check_PRE(exp)
-            start_PRE(exp)
+            #start_PRE(exp)
 
         if done is None:
             cur_state = 'X'
@@ -233,6 +238,8 @@ for l in todo:
         f_todo.write(start_AP(l) + '\n')
     elif aid == 2:
         f_todo.write(start_NP(l) + '\n')
+    elif aid == 3:
+        f_todo.write(start_PRE(l) + '\n')
 
 for l in unknown:
     f_unknown.write(l + '\n')

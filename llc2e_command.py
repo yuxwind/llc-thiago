@@ -7,6 +7,7 @@ types = ["100-100", "200-200", "100-100-100", "400-400"]
 types = ["100-100-100-100-100",  "25-25-25", "800-800", "100-100-100-100", ] 
 #types = ["100-100", "200-200", "400-400", "800-800", "100-100-100", "100-100-100-100", "100-100-100-100-100", '1600-1600'] 
 #types = ["100-100-100-100-100"] 
+use_drop =True
 type_arch = {"25-25": "fcnn2", 
                 "50-50": "fcnn2a", 
                 "100-100": "fcnn2b", 
@@ -21,6 +22,10 @@ type_arch = {"25-25": "fcnn2",
                 "100-100-100-100": "fcnn4b", 
                 "100-100-100-100-100": "fcnn5b",
                 "1600-1600": "fcnn2f"}
+if use_drop:
+    for t in type_arch:
+        type_arch[t] = type_arch[t] + '_d'
+
 c0 = np.arange(0,0.00021, 0.000025)
 c1 = np.arange(0,0.00041, 0.000025)
 l1_reg = { "25-25": [ 0.001 ], 
@@ -56,7 +61,7 @@ else:
     lr_idx = None
     script_path = f'net{type_id}-run_{first_network}_{last_network}.sh'
 
-dataset = "MNIST" # Can also be "CIFAR10" for gray CIFAR10, MNIST, CIFAR10-rgb, CIFAR100-rgb
+dataset = "CIFAR100-rgb" # Can also be "CIFAR10" for gray CIFAR10, MNIST, CIFAR10-rgb, CIFAR100-rgb
 
 train_networks          = False
 test_new_compression    = False

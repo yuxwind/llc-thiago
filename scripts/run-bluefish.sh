@@ -11,11 +11,12 @@ set -x
 #    CUDA_VISIBLE_DEVICES=1 python train_cifar10_gray.py $i &
 #done
 
-for i in `seq 0 13`; do
-    python schedule_jobs.py track_progress/todo_TR_cifar10-rgb.sh $i 6 CUDA_VISIBLE_DEVICES=0 
+for i in `seq 0 8`; do
+    #python schedule_jobs.py track_progress/todo_PRE_mnist.sh $i 9 CUDA_VISIBLE_DEVICES=0 
+    python schedule_jobs.py track_progress/todo_TR_cifar100-rgb.sh $i 1 CUDA_VISIBLE_DEVICES=0 
 done
-    for i in `seq 14 32`; do
-    python schedule_jobs.py track_progress/todo_TR_cifar10-rgb.sh $i 6 CUDA_VISIBLE_DEVICES=1 
-done
-python schedule_jobs.py track_progress/todo_TR_cifar10-rgb.sh 33 7 CUDA_VISIBLE_DEVICES=1 
+#for i in `seq 20 39`; do
+#    python schedule_jobs.py track_progress/todo_PRE_mnist.sh $i 9 CUDA_VISIBLE_DEVICES=1 
+#done
+#python schedule_jobs.py track_progress/todo_TR_cifar100-rgb.sh 8 10 CUDA_VISIBLE_DEVICES=1 
 set +x

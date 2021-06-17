@@ -121,6 +121,7 @@ cfg = {
 }
 
 __all__ = [
+    'fcnn_prune',
     'fcnn'  ,
     'fcnn1' , 'fcnn1_d' , 'fcnn1a', 'fcnn1a_d', 'fcnn1b', 'fcnn1b_d', 'fcnn1c_d', 'fcnn1d_d', 'fcnn1e_d', 'fcnn1f_d',
     'fcnn2' , 'fcnn2_d' , 'fcnn2a', 'fcnn2a_d', 'fcnn2b', 'fcnn2b_d', 'fcnn2c'  , 'fcnn2c_d', 'fcnn2d_d', 'fcnn2e', 'fcnn2e_d', 'fcnn2f', 'fcnn2g', 'fcnn2h',
@@ -130,6 +131,9 @@ __all__ = [
     'fcnn5' , 'fcnn5_d' , 'fcnn5a', 'fcnn5a_d', 'fcnn5b', 'fcnn5b_d', 'fcnn5c', 'fcnn5c_d', 'fcnn5d',
     'fcnn6' , 'fcnn6_d' , 'fcnn6a', 'fcnn6a_d', 'fcnn6b', 'fcnn6b_d'
 ]
+
+def fcnn_prune(cfg, input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg, in_channels = input_dim), class_num = class_num)
 
 def fcnn1(input_dim = 784, class_num = 10):
     return FCNN(make_layers(cfg['A'], in_channels = input_dim), class_num = class_num)

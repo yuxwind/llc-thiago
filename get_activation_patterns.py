@@ -914,12 +914,11 @@ if determine_stability_per_network:
                 print("Layer %d Completed..." %(m))
 
                 matrix_list = []
-                import pdb;pdb.set_trace()
-                for j in stably_active[m]:
-                  matrix_list.append([weights[m-1][j,k] for k in range(nodes_per_layer[m-1])])
-                  print()
+                #for j in stably_active[m]:
+                #  matrix_list.append([weights[m-1][j,k] for k in range(nodes_per_layer[m-1])])
+                #  import pdb;pdb.set_trace()
+                matrix_list = [weights[m-1][j] for j in stably_active[m]]
                 print("Active: ", stably_active[m])
-                import pdb;pdb.set_trace()
                 #import numpy
                 #rank = numpy.linalg.matrix_rank(numpy.array(matrix_list))
                 rank = torch.linalg.matrix_rank(torch.tensor(matrix_list))

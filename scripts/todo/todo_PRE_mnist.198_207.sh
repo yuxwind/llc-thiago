@@ -1,0 +1,9 @@
+python train_fcnn.py --arch fcnn2e --resume ./model_dir/MNIST/dnn_MNIST_800-800_0.000125_0005/checkpoint_120.tar  -e --eval-stable --eval-train-data --dataset MNIST
+python train_fcnn.py --arch fcnn2e --resume ./model_dir/MNIST/dnn_MNIST_800-800_0.00015000000000000001_0001/checkpoint_120.tar  -e --eval-stable --eval-train-data --dataset MNIST
+python train_fcnn.py --arch fcnn2e --resume ./model_dir/MNIST/dnn_MNIST_800-800_0.00015000000000000001_0002/checkpoint_120.tar  -e --eval-stable --eval-train-data --dataset MNIST
+python train_fcnn.py --arch fcnn2e --resume ./model_dir/MNIST/dnn_MNIST_800-800_0.00015000000000000001_0003/checkpoint_120.tar  -e --eval-stable --eval-train-data --dataset MNIST
+python train_fcnn.py --arch fcnn2e --resume ./model_dir/MNIST/dnn_MNIST_800-800_0.00015000000000000001_0004/checkpoint_120.tar  -e --eval-stable --eval-train-data --dataset MNIST
+python train_fcnn.py --arch fcnn2e --resume ./model_dir/MNIST/dnn_MNIST_800-800_0.00015000000000000001_0005/checkpoint_120.tar  -e --eval-stable --eval-train-data --dataset MNIST
+python train_fcnn.py --arch fcnn2e --resume ./model_dir/MNIST/dnn_MNIST_800-800_0.000175_0001/checkpoint_120.tar  -e --eval-stable --eval-train-data --dataset MNIST
+python train_fcnn.py --arch fcnn2e --resume ./model_dir/MNIST/dnn_MNIST_800-800_0.000175_0002/checkpoint_120.tar  -e --eval-stable --eval-train-data --dataset MNIST
+python train_fcnn.py --arch fcnn2e --resume ./model_dir/MNIST/dnn_MNIST_800-800_0.000175_0003/checkpoint_120.tar  -e --eval-stable --eval-train-data --dataset MNIST
