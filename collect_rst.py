@@ -22,6 +22,7 @@ stb_neuron  = 'stable_neurons/'
 NOPRE       = 'results-no_preprocess'
 ALLPRE      = 'results-preprocess_all'
 PARTPRE     = 'results-preprocess_partial'
+OLD         = 'results-old-approach'
 
 # Get experiment list for four datasets
 p_mnist = './track_progress/track_mnist.txt'
@@ -52,10 +53,18 @@ def collect_AP(model_name, tag=ALLPRE):
     if not os.path.exists(rst_path):
         return os.path.basename(model_name)
     rst = [l.strip().split('/')[-1] for l in open(rst_path, 'r').readlines()]
+    print('----', rst)
     for l in rst:
-        if 'relaxation' in l:
-            return l
+        #if 'relaxation' in l:
+        if tag == OLD:
+            if 'neuron' in l:
+                return l
+        else:
+            if 'network' in l:
+                return l
     return os.path.basename(model_name)
+    #import pdb;pdb.set_trace()
+    #return ''
 
 dataset = sys.argv[1] # this can be 'mnist', 'cifar10-gray', 'cifar10-rgb', 'cifar100-rgb' 
 action  = sys.argv[2] # this can be 'ap', 'np', 'pp' 
@@ -85,6 +94,8 @@ f_rst   = open(path_rst, 'w')
 f_rst.write('\n')
 # example of tag format: TR-D, AP-D, NP-X 
 for i,l in enumerate(track_list):
+    if l == '\n' or l == '':
+        continue
     arrs = l.strip().split('#')
     exp = arrs[-1]
     arch = os.path.basename(exp).split('_')[2]
@@ -94,12 +105,21 @@ for i,l in enumerate(track_list):
         tag = NOPRE
     elif action == 'pp':
         tag = PARTPRE
+    elif action == 'old':
+        tag = OLD
     else:
         print('Unkown action')
 
     pre_act, pre_inact=collect_stable_from_sample(exp)
 
     rst = collect_AP(exp, tag)
-    f_rst.write(rst.strip() + ',' + str(pre_act) + ',' + str(pre_inact) + '\n')
-      
+    print(rst)
+    #import pdb;pdb.set_trace()
+    if len(rst.split(',')) > 2:
+        f_rst.write(rst.strip() + ',' + str(pre_act) + ',' + str(pre_inact) + '\n')
+    else:
+        f_rst.write(rst.strip() + '\n')
+        
+
+print(path_rst)
 f_rst.close() 

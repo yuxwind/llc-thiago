@@ -9,9 +9,9 @@ from common.io import mkpath,mkdir
 
 
 todo    = sys.argv[1]
-#todo = 'scripts/compress/MNIST/small_netNone-run_1_3.sh'
+todo = 'track_progress/todo_OD_cifar10_cifar100_large_net.sh'
 cmds    = open(todo, 'r').readlines()
-#todo2 = 'scripts/compress/MNIST/large_netNone-run_1_3.sh'
+#todo2 = 'track_progress/todo_OD_cifar10_cifar100_large_net.sh'
 #cmds2    = open(todo2, 'r').readlines()
 
 
