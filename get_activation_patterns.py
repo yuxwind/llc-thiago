@@ -62,6 +62,8 @@ import re
 import random
 
 from common.io import mkpath, mkdir
+from dir_lookup import *
+
 
 accuracy = None
 
@@ -464,14 +466,6 @@ print("Network",network)
 print("Accuracy",accuracy)
 #f = open("RESULTS.txt","a+")
 
-NOPRE       = 'results-no_preprocess'
-ALLPRE      = 'results-preprocess_all'
-PARTPRE     = 'results-preprocess_partial'
-OLD         = 'results-old-approach'
-rst_dir     = './results/'
-cnt_rst     = 'counting_results/'
-stb_neuron  = 'stable_neurons/'
-
 if args.formulation == 'neuron':
     tag = OLD
 else:
@@ -482,10 +476,10 @@ else:
     else:
         tag = NOPRE
 
-rst_dir = mkdir(os.path.join(rst_dir, args.dataset, tag, cnt_rst))
+stb_dir = mkdir(os.path.join(stb_root, args.dataset, tag, cnt_rst))
 exp_name = os.path.basename(os.path.dirname(args.input))
-stable_neurons_path = mkpath(os.path.join(rst_dir, args.dataset, tag, stb_neuron, exp_name + '.npy'))
-f = open(mkpath(os.path.join(rst_dir, exp_name + '.txt')), "a+")
+stable_neurons_path = mkpath(os.path.join(stb_dir, args.dataset, tag, stb_neuron, exp_name + '.npy'))
+f = open(mkpath(os.path.join(stb_dir, exp_name + '.txt')), "a+")
 f.write(network+", "+str(accuracy)+", , ")
 
 timeouts = 0

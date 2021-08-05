@@ -41,12 +41,14 @@ import sys
 import numpy as np
 from numpy.linalg import matrix_rank, norm
 import torch
-import sympy
+#import sympy
 
 from common.timer import Timer
+from dir_lookup import *
 
 DEBUG = False
 timer = Timer()
+
 #######################################################################################
 # remove the corresponding weights before and after the stably inactive neurons
 #######################################################################################
@@ -198,19 +200,53 @@ def sanity_ckp():
     w_names = ['w1', 'w2']
     b_names = ['b1', 'b2']
     return [w1, w2], [b1, b2], act_neurons, inact_neurons, w_names, b_names
+   
+def read_MILP_stb(model_path, tag=ALLPRE):
+    stb_path = get_MILP_stb_path(tag, model_path)
+    stb_neurons = np.load(stb_path, allow_pickle=True).item()
+    act_dict = stb_neurons['stably_active']
+    inact_dict = stb_neurons['stably_inactive']
+    act_arr, inact_arr = [], []
+    for i,j in act_dict.items():
+        act_arr.extend([[i,jj] for jj in j])
+    act_neurons = np.array(act_arr).T
     
+    for i,j in inact_dict.items():
+        inact_arr.extend([[i,jj] for jj in j])
+    inact_neurons = np.array(inact_arr).T
+    return act_neurons, inact_neurons
+
+def read_train_stb(model_path):  
+    #stb_path = os.path.join(model_path, 'stable_neurons.npy')
+    stb_path = get_train_stb_path(model_path)
+    stb_neurons = np.load(stb_path, allow_pickle=True).item()
+    import pdb;pdb.set_trace()
+    act_neurons = stb_neurons['stably_active'].squeeze(axis=2).T
+    inact_neurons = stb_neurons['stably_inactive'].squeeze(axis=2).T
+    return act_neurons, inact_neurons 
+    ##timer.stop('loaded the checkpoint')
+
 #######################################################################################
 # update the weights and bias in the checkpoints
 #######################################################################################
-def prune_ckp(model_path):
-    
+def prune_ckp(model_path,tag):
+     
     if DEBUG:
         weights, bias, act_neurons, inact_neurons, w_names, b_names = sanity_ckp()
     else:
         timer.start()
         ckp_path = os.path.join(model_path, 'checkpoint_120.tar')
         pruned_ckp_path = os.path.join(model_path, 'pruned_checkpoint_120.tar')
-        stb_path = os.path.join(model_path, 'stable_neurons.npy')
+        MILP_rst      = collect_rst(model_path, tag)
+        #stb_path = os.path.join(model_path, 'stable_neurons.npy')
+        #stb_path = get_stb_path(ALLPRE, model_path)
+        stb_path = get_MILP_stb_path(tag, model_path)
+        if not os.path.exists(ckp_path):
+            print(ckp_path, 'not exists')
+            return
+        if not os.path.exists(stb_path):
+            print(stb_path, 'not exists')
+            return
         ckp = torch.load(ckp_path)
         weights = []
         bias    = []
@@ -229,33 +265,41 @@ def prune_ckp(model_path):
         for name in b_names:
             bias.append(ckp['state_dict'][name].cpu().numpy())
 
-        stb_neurons = np.load(stb_path, allow_pickle=True).item()
-        act_neurons = stb_neurons['stably_active'].squeeze(axis=2).T
-        inact_neurons = stb_neurons['stably_inactive'].squeeze(axis=2).T
+        act_neurons, inact_neurons = read_MILP_stb(model_path, tag) 
         ##timer.stop('loaded the checkpoint')
-    #import pdb;pdb.set_trace()
+    pruned_numbers = ''
     for l in range(1, len(weights)):
-        ind_act   = act_neurons[1,   act_neurons[0,:] == l]
-        ind_inact = inact_neurons[1, inact_neurons[0,:] == l]
+        if len(act_neurons) > 0:
+            ind_act  = act_neurons[1,   act_neurons[0,:] == l]
+        else:
+            ind_act  = []
+        if len(inact_neurons) > 0:
+            ind_inact = inact_neurons[1, inact_neurons[0,:] == l]
+        else:
+            ind_inact = []
         w1 = weights[l-1]
         w2 = weights[l]
         b1 = bias[l-1]
         b2 = bias[l]
         prune_ind = []
+        # get the index of stably active neurons to prune
         if len(ind_act) > 0:
             #import pdb;pdb.set_trace()
             w2, b2, prune_ind_act = prune_active_per_layer(w1, w2, b1, b2, ind_act)
             prune_ind.extend(prune_ind_act)
         else:
             prune_ind_act = []
+        # all stably inactive neurons to prune
         if len(ind_inact) > 0:
             prune_ind.extend(ind_inact)
+        # delete all the neurons to be pruned
         if len(prune_ind) > 0:
             w1 = np.delete(w1, prune_ind, axis=0)
             b1 = np.delete(b1, prune_ind, axis=0)
             w2 = np.delete(w2, prune_ind, axis=1)
         print(f'Layer-{l}: prune {len(prune_ind_act)} stably active neurons')
         print(f'layer-{l}: prune {len(ind_inact)} stably inactive neurons')
+        pruned_numbers += f'{len(prune_ind_act)}, {len(ind_inact)},,'
         # update the weights and bias
         weights[l-1] = w1
         bias[l-1]    = b1
@@ -270,10 +314,17 @@ def prune_ckp(model_path):
         ckp['state_dict'][name] = torch.from_numpy(bias[i]).cuda(device=device)
     # save the checkpoint 
     torch.save(ckp, pruned_ckp_path)
-
+    if 'NO RESULT' in MILP_rst[0]:
+        _,arch,_,_ = parse_exp_name(model_path)
+        MILP_rst = [model_path + ', , ,' + ' , , ,,' * len(arch.split('-')) + ' ,, , ,, ,,'] 
+    MILP_rst_path = get_MILP_rst_path(tag, model_path)
+    with open(MILP_rst_path, 'w') as f:
+        for l in MILP_rst:
+            f.write(l + pruned_numbers + '\n')  
+    print(MILP_rst_path)
 
 if __name__ == '__main__':
     #model_path = 'model_dir/CIFAR100-rgb/dnn_CIFAR100-rgb_400-400_7.500000000000001e-05_0001'
-    #model_path = 'model_dir/CIFAR10-rgb.0526/dnn_CIFAR10-rgb_400-400_0.000175_0003'
+    #model_path = 'model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_400-400_0.000175_0002'
     model_path = sys.argv[1]
-    prune_ckp(model_path)
+    prune_ckp(model_path, ALLPRE)

@@ -5,6 +5,7 @@ from glob import glob
 from common.io import mkdir,mkpath
 from common.time import today_, now_
 from cfg import type_arch,small_types,large_types 
+from dir_lookup import collect_rst 
 ####################################################
 # Track progress of the models: whether the training is done, whether the MILP is done
 # Ouput a todo list for the unfinished tasks:
@@ -17,12 +18,14 @@ AP          = 'AP'      # couting stable with preprocessing all training samples
 NP          = 'NP'      # couting stable without preprocessing
 #PP         = '#pp:'    # couting stable with preprocessing partial training sampls
 PRE         = 'PRE'     # counting stable from training samples
-OD         = 'OD'     # old approach to count stable 
+OD          = 'OD'      # old approach to count stable 
+PRUNE       = 'PRUNE'   # prune the network with the neuron stability 
+
 RUN         = 'R'       # it is running
 DONE        = 'D'       # it is done
 UNDONE      = 'U'       # it is not finished
 UNKNOWN     = 'X'       # it is unknown
-ACTIONS     = [TRAIN, AP, NP, PRE, OD]
+ACTIONS     = [TRAIN, AP, NP, PRE, OD, PRUNE]
 act_dict    = dict(zip(ACTIONS, range(len(ACTIONS))))
 
 model_dir   = './model_dir'
@@ -42,7 +45,7 @@ p_cifar10_gray  = 'track_progress/track_cifar10-gray.txt'
 p_cifar10_rgb = 'track_progress/track_cifar10-rgb.txt'
 p_cifar100_rgb = 'track_progress/track_cifar100-rgb.txt'
 
-mnist_track_list = open(p_mnist, 'r').readlines()
+mnist_track_list = open(p_mnist + '.orig', 'r').readlines()
 cifar10_gray_track_list = open(p_cifar10_gray + '.orig', 'r').readlines()
 cifar10_rgb_track_list = open(p_cifar10_rgb + '.orig', 'r').readlines()
 cifar100_rgb_track_list = open(p_cifar100_rgb + '.orig', 'r').readlines()
@@ -86,14 +89,6 @@ def check_OD(model_name):
             return True
     return None
 
-def collect_rst(model_name, tag):
-    dataset = os.path.basename(model_name).split('_')[1]
-    rst_path = os.path.join(rst_dir, dataset, tag, cnt_rst, os.path.basename(model_name) + '.txt')
-    if not os.path.exists(rst_path):
-        return [model_name + ': NO RESULT']
-    rst = [l.strip() for l in open(rst_path, 'r').readlines()]
-    return rst
-
 # check whether MILP with preprocessing all training samples is done
 def check_AP(model_name):
     dataset = os.path.basename(model_name).split('_')[1]
@@ -128,6 +123,16 @@ def start_training(model_name):
     cmd = "python train_fcnn.py --arch " + type_arch[arch] + " --save-dir " + folder  + " --l1 " + l1 + " --dataset " + dataset + " --eval-stable "
     log = mkpath(f"logs/training/{os.path.basename(model_name)}.log")
     print(log)
+    return cmd
+
+def check_PRUNE(model_name):
+    if os.path.exists(os.path.join(model_name, 'pruned_checkpoint_120.tar')):
+        return True
+    else:
+        return False
+
+def start_PRUNE(model_name):
+    cmd = "python prune_network.py " + model_name
     return cmd
 
 def start_OD(model_name):
@@ -190,6 +195,8 @@ elif action == 'pre':
     aid = 3
 elif action == 'old':
     aid = 4
+elif action == 'prune':
+    aid = 5
 else:
     print('Unknown action')
 
@@ -245,11 +252,12 @@ for i,l in enumerate(track_list):
         prev_tag = ['-'.join([t, states[t]]) for t in ACTIONS]
     else:
         prev_tag = [f'{TRAIN}-{UNKNOWN}', f'{AP}-{UNKNOWN}', f'{NP}-{UNKNOWN}', f'{PRE}-{UNKNOWN}', 
-                    f'{OD}-{UNKNOWN}']
+                    f'{OD}-{UNKNOWN}', f'{PRUNE}-{UNKNOWN}']
     prev_state = prev_tag[aid].split('-')[1]
 
     if prev_state != f'{DONE}':
         tr_done = check_training(exp)
+        ap_done = check_AP(exp) 
         if aid == 0:
             done = tr_done
         elif aid == 1:
@@ -261,7 +269,9 @@ for i,l in enumerate(track_list):
             start_PRE(exp)
         elif aid == 4:
             done = check_OD(exp)
-            
+        elif aid == 5:
+            done = check_PRUNE(exp)
+
         if done is None:
             cur_state = 'X'
             unknown.append(exp)
@@ -277,6 +287,9 @@ for i,l in enumerate(track_list):
             # TRAIN should be done before starting other actions
             if aid == 0:
                 todo.append(exp)
+            if aid == 5:
+                if ap_done:
+                    todo.append(exp)
             else:
                 if not tr_done:
                     print(exp)
@@ -306,6 +319,8 @@ for l in todo:
         f_todo.write(start_PRE(l)+ '\n')
     elif aid == 4:
         f_todo.write(start_OD(l) + '\n')
+    elif aid == 5:
+        f_todo.write(start_PRUNE(l) + '\n')
     for ll in collect_rst(l, ACTIONS[aid]):
         f_todo_rst.write(ll + '\n')
 
