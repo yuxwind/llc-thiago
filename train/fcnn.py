@@ -20,14 +20,14 @@ class FCNN(nn.Module):
     '''
     FCNN model
     '''
-    def __init__(self, features):
+    def __init__(self, features, class_num=10):
         super(FCNN, self).__init__()
         self.features   = features
 
         num_blocks = len(self.features)
         output_dim = self.features[num_blocks-3].out_features
         self.classifier = nn.Sequential(
-            nn.Linear(output_dim, 10)
+            nn.Linear(output_dim, class_num)
         )
         #self.th         = custom_blocks.Thresholder()
 
@@ -45,7 +45,6 @@ class FCNN(nn.Module):
         #a = self.th(x)
         a = x
         #x = self.smax(x)
-
         return F.log_softmax(x, dim=1), a
 
 
@@ -122,6 +121,7 @@ cfg = {
 }
 
 __all__ = [
+    'fcnn_prune',
     'fcnn'  ,
     'fcnn1' , 'fcnn1_d' , 'fcnn1a', 'fcnn1a_d', 'fcnn1b', 'fcnn1b_d', 'fcnn1c_d', 'fcnn1d_d', 'fcnn1e_d', 'fcnn1f_d',
     'fcnn2' , 'fcnn2_d' , 'fcnn2a', 'fcnn2a_d', 'fcnn2b', 'fcnn2b_d', 'fcnn2c'  , 'fcnn2c_d', 'fcnn2d_d', 'fcnn2e', 'fcnn2e_d', 'fcnn2f', 'fcnn2g', 'fcnn2h',
@@ -132,210 +132,212 @@ __all__ = [
     'fcnn6' , 'fcnn6_d' , 'fcnn6a', 'fcnn6a_d', 'fcnn6b', 'fcnn6b_d'
 ]
 
-def fcnn1(input_dim = 784):
-    return FCNN(make_layers(cfg['A'], in_channels = input_dim))
+def fcnn_prune(cfg, input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg, in_channels = input_dim), class_num = class_num)
 
-def fcnn1_d(input_dim = 784):
-    return FCNN(make_layers(cfg['A'], dropout=True, in_channels = input_dim))
+def fcnn1(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['A'], in_channels = input_dim), class_num = class_num)
 
-def fcnn1a(input_dim = 784):
-    return FCNN(make_layers(cfg['Aa'], in_channels = input_dim))
+def fcnn1_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['A'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn1a_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Aa'], dropout=True, in_channels = input_dim))
+def fcnn1a(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Aa'], in_channels = input_dim), class_num = class_num)
 
-def fcnn1b(input_dim = 784):
-    return FCNN(make_layers(cfg['Ab'], in_channels = input_dim))
+def fcnn1a_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Aa'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn1b_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Ab'], dropout=True, in_channels = input_dim))
+def fcnn1b(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ab'], in_channels = input_dim), class_num = class_num)
 
-def fcnn1c_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Ac'], dropout=True, in_channels = input_dim))
+def fcnn1b_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ab'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn1d_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Ad'], dropout=True, in_channels = input_dim))
+def fcnn1c_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ac'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn1e_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Ae'], dropout=True, in_channels = input_dim))
+def fcnn1d_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ad'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn1f_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Af'], dropout=True, in_channels = input_dim))
+def fcnn1e_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ae'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn2(input_dim = 784):
-    return FCNN(make_layers(cfg['B'], in_channels = input_dim))
+def fcnn1f_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Af'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn2_d(input_dim = 784):
-    return FCNN(make_layers(cfg['B'], dropout=True, in_channels = input_dim))
+def fcnn2(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['B'], in_channels = input_dim), class_num = class_num)
 
-def fcnn2a(input_dim = 784):
-    return FCNN(make_layers(cfg['Ba'], in_channels = input_dim))
+def fcnn2_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['B'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn2a_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Ba'], dropout=True, in_channels = input_dim))
+def fcnn2a(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ba'], in_channels = input_dim), class_num = class_num)
 
-def fcnn2b(input_dim = 784):
-    return FCNN(make_layers(cfg['Bb'], in_channels = input_dim))
+def fcnn2a_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ba'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn2b_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Bb'], dropout=True, in_channels = input_dim))
+def fcnn2b(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Bb'], in_channels = input_dim), class_num = class_num)
 
-def fcnn2c(input_dim = 784):
-    return FCNN(make_layers(cfg['Bc'], in_channels = input_dim))
+def fcnn2b_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Bb'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn2c_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Bc'], dropout=True, in_channels = input_dim))
+def fcnn2c(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Bc'], in_channels = input_dim), class_num = class_num)
 
-def fcnn2d(input_dim = 784):
-    return FCNN(make_layers(cfg['Bd'], dropout=False, in_channels = input_dim))
+def fcnn2c_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Bc'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn2d_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Bd'], dropout=True, in_channels = input_dim))
+def fcnn2d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Bd'], dropout=False, in_channels = input_dim), class_num = class_num)
 
-def fcnn2e(input_dim = 784):
-    return FCNN(make_layers(cfg['Be'], dropout=False, in_channels = input_dim))
+def fcnn2d_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Bd'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn2e_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Be'], dropout=True, in_channels = input_dim))
+def fcnn2e(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Be'], dropout=False, in_channels = input_dim), class_num = class_num)
 
-def fcnn2f(input_dim = 784):
-    return FCNN(make_layers(cfg['Bf'], dropout=False, in_channels = input_dim))
+def fcnn2e_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Be'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn2g(input_dim = 784):
-    return FCNN(make_layers(cfg['Bg'], dropout=False, in_channels = input_dim))
+def fcnn2f(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Bf'], dropout=False, in_channels = input_dim), class_num = class_num)
 
-def fcnn2h(input_dim = 784):
-    return FCNN(make_layers(cfg['Bh'], dropout=False, in_channels = input_dim))
+def fcnn2g(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Bg'], dropout=False, in_channels = input_dim), class_num = class_num)
 
-def fcnn3(input_dim = 784):
-    return FCNN(make_layers(cfg['C'], in_channels = input_dim))
+def fcnn2h(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Bh'], dropout=False, in_channels = input_dim), class_num = class_num)
 
-def fcnn3_d(input_dim = 784):
-    return FCNN(make_layers(cfg['C'], dropout=True, in_channels = input_dim))
+def fcnn3(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['C'], in_channels = input_dim), class_num = class_num)
 
-def fcnn3a(input_dim = 784):
-    return FCNN(make_layers(cfg['Ca'], in_channels = input_dim))
+def fcnn3_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['C'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn3a_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Ca'], dropout=True, in_channels = input_dim))
+def fcnn3a(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ca'], in_channels = input_dim), class_num = class_num)
 
-def fcnn3b(input_dim = 784):
-    return FCNN(make_layers(cfg['Cb'], in_channels = input_dim))
+def fcnn3a_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ca'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn3b_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Cb'], dropout=True, in_channels = input_dim))
+def fcnn3b(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Cb'], in_channels = input_dim), class_num = class_num)
 
-def fcnn3c(input_dim = 784):
-    return FCNN(make_layers(cfg['Cc'], in_channels = input_dim))
+def fcnn3b_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Cb'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn4(input_dim = 784):
-    return FCNN(make_layers(cfg['D'], in_channels = input_dim))
+def fcnn3c(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Cc'], in_channels = input_dim), class_num = class_num)
 
-def fcnn4_d(input_dim = 784):
-    return FCNN(make_layers(cfg['D'], dropout=True, in_channels = input_dim))
+def fcnn4(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['D'], in_channels = input_dim), class_num = class_num)
 
-def fcnn4a(input_dim = 784):
-    return FCNN(make_layers(cfg['Da'], in_channels = input_dim))
+def fcnn4_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['D'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn4a_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Da'], dropout=True, in_channels = input_dim))
+def fcnn4a(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Da'], in_channels = input_dim), class_num = class_num)
 
-def fcnn4b(input_dim = 784):
-    return FCNN(make_layers(cfg['Db'], in_channels = input_dim))
+def fcnn4a_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Da'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn4b_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Db'], dropout=True, in_channels = input_dim))
+def fcnn4b(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Db'], in_channels = input_dim), class_num = class_num)
 
-def fcnn4c(input_dim = 784):
-    return FCNN(make_layers(cfg['Dc'], in_channels = input_dim))
+def fcnn4b_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Db'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn4c_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Dc'], dropout=True, in_channels = input_dim))
+def fcnn4c(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Dc'], in_channels = input_dim), class_num = class_num)
 
-def fcnn4d(input_dim = 784):
-    return FCNN(make_layers(cfg['Dd'], in_channels = input_dim))
+def fcnn4c_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Dc'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn4d_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Dd'], dropout=True, in_channels = input_dim))
+def fcnn4d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Dd'], in_channels = input_dim), class_num = class_num)
 
-def fcnn4e(input_dim = 784):
-    return FCNN(make_layers(cfg['De'], in_channels = input_dim))
+def fcnn4d_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Dd'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn4e_d(input_dim = 784):
-    return FCNN(make_layers(cfg['De'], dropout=True, in_channels = input_dim))
+def fcnn4e(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['De'], in_channels = input_dim), class_num = class_num)
 
-def fcnn4f(input_dim = 784):
-    return FCNN(make_layers(cfg['Df'], in_channels = input_dim))
+def fcnn4e_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['De'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn4f_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Df'], dropout=True, in_channels = input_dim))
+def fcnn4f(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Df'], in_channels = input_dim), class_num = class_num)
 
-def fcnn4g_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Dg'], dropout=True, in_channels = input_dim))
+def fcnn4f_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Df'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn4h_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Dh'], dropout=True, in_channels = input_dim))
+def fcnn4g_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Dg'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn4i_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Di'], dropout=True, in_channels = input_dim))
+def fcnn4h_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Dh'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn4j_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Dj'], dropout=True, in_channels = input_dim))
+def fcnn4i_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Di'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn4l_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Dl'], dropout=True, in_channels = input_dim))
+def fcnn4j_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Dj'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn4m_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Dm'], dropout=True, in_channels = input_dim))
+def fcnn4l_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Dl'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn4n_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Dn'], dropout=True, in_channels = input_dim))
+def fcnn4m_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Dm'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn5(input_dim = 784):
-    return FCNN(make_layers(cfg['E'], in_channels = input_dim))
+def fcnn4n_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Dn'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn5_d(input_dim = 784):
-    return FCNN(make_layers(cfg['E'], dropout=True, in_channels = input_dim))
+def fcnn5(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['E'], in_channels = input_dim), class_num = class_num)
 
-def fcnn5a(input_dim = 784):
-    return FCNN(make_layers(cfg['Ea'], in_channels = input_dim))
+def fcnn5_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['E'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn5a_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Ea'], dropout=True, in_channels = input_dim))
+def fcnn5a(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ea'], in_channels = input_dim), class_num = class_num)
 
-def fcnn5b(input_dim = 784):
-    return FCNN(make_layers(cfg['Eb'], in_channels = input_dim))
+def fcnn5a_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ea'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn5b_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Eb'], dropout=True, in_channels = input_dim))
+def fcnn5b(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Eb'], in_channels = input_dim), class_num = class_num)
 
-def fcnn5c(input_dim = 784):
-    return FCNN(make_layers(cfg['Ec'], in_channels = input_dim))
+def fcnn5b_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Eb'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn5c_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Ec'], dropout=True, in_channels = input_dim))
+def fcnn5c(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ec'], in_channels = input_dim), class_num = class_num)
 
-def fcnn5d(input_dim = 784):
-    return FCNN(make_layers(cfg['Ed'], in_channels = input_dim))
+def fcnn5c_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ec'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn6(input_dim = 784):
-    return FCNN(make_layers(cfg['F'], in_channels = input_dim))
+def fcnn5d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Ed'], in_channels = input_dim), class_num = class_num)
 
-def fcnn6_d(input_dim = 784):
-    return FCNN(make_layers(cfg['F'], dropout=True, in_channels = input_dim))
+def fcnn6(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['F'], in_channels = input_dim), class_num = class_num)
 
-def fcnn6a(input_dim = 784):
-    return FCNN(make_layers(cfg['Fa'], in_channels = input_dim))
+def fcnn6_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['F'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn6a_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Fa'], dropout=True, in_channels = input_dim))
+def fcnn6a(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Fa'], in_channels = input_dim), class_num = class_num)
 
-def fcnn6b(input_dim = 784):
-    return FCNN(make_layers(cfg['Fb'], in_channels = input_dim))
+def fcnn6a_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Fa'], dropout=True, in_channels = input_dim), class_num = class_num)
 
-def fcnn6b_d(input_dim = 784):
-    return FCNN(make_layers(cfg['Fb'], dropout=True, in_channels = input_dim))
+def fcnn6b(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Fb'], in_channels = input_dim), class_num = class_num)
+
+def fcnn6b_d(input_dim = 784, class_num = 10):
+    return FCNN(make_layers(cfg['Fb'], dropout=True, in_channels = input_dim), class_num = class_num)
 
 def lenet(input_dim=32):
     return LeNet(input_dim)
-

@@ -23,6 +23,7 @@ import os
 import shutil
 import time
 import sys
+from tqdm import tqdm
 
 import torch
 import torch.nn as nn
@@ -52,7 +53,7 @@ parser.add_argument( '--arch', metavar='ARCH', default='fcnn1',
                     help='model architecture: ' + ' | '.join(model_names) +
                     ' (default: fcnn1)')
 
-parser.add_argument('-j'  , '--workers'        , type=int        , default=4             , metavar='N'    , help='number of data loading workers (default: 4)')
+parser.add_argument('-j'  , '--workers'        , type=int        , default=2             , metavar='N'    , help='number of data loading workers (default: 4)')
 parser.add_argument('-b'  , '--batch-size'     , type=int        , default=128            , metavar='N'    , help='mini-batch size (default: 64)')
 parser.add_argument(        '--test-batch-size', type=int        , default=10000         , metavar='T'    , help='input batch size for testing (default: 10000)')
 
@@ -70,6 +71,8 @@ parser.add_argument(        '--resume'         , type=str          , default='' 
 parser.add_argument(        '--start-epoch'    , type=int          , default=0           , metavar='N'    , help='manual epoch number (useful on restarts)')
 parser.add_argument(        '--pretrained'     , dest='pretrained' , action='store_true'                  , help='use pre-trained model')
 parser.add_argument('-e'  , '--evaluate'       , dest='evaluate'   , action='store_true'                  , help='evaluate model on validation set')
+parser.add_argument( '--eval-stable'           , dest='eval_stable', action='store_true'                  , help='evaluate the sbability of neurons')
+parser.add_argument('--eval-train-data'    , action='store_true', help='evaluate model on training set')
 parser.add_argument(        '--half'           , dest='half'       , action='store_true'                  , help='use half-precision(16-bit) ')
 parser.add_argument(        '--dataset'        , dest='dataset', type=str         , default='MNIST'     , help='Dataset to be used (default: MNIST)')
 
@@ -105,25 +108,37 @@ def main():
     device = torch.device("cuda" if use_cuda else "cpu")
     fcnn_flag       = True
     sep             = "," #This is used for separating in weights.dat file
-    save_frequency  = 30
+    save_frequency  = 120
 
 
     # Check the save_dir exists or not
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
-    if(dataset == "CIFAR10"):
+    if(dataset == "CIFAR10-gray"):
         input_dim  = 1024
+        class_num  = 10
     elif (dataset == "MNIST"):
-        input_dim = 784
-
+        input_dim  = 784
+        class_num  = 10
+    elif (dataset == "CIFAR10-rgb"):
+        input_dim  = 1024 * 3
+        class_num  = 10
+    elif (dataset == "CIFAR100-rgb"):
+        input_dim  = 1024 * 3
+        class_num  = 100
+    
     if args.arch == "lenet":
-        if(dataset == "CIFAR10"):
+        if("CIFAR10" in dataset):
             input_dim  = 32 
         elif (dataset == "MNIST"):
             input_dim = 28
-
-    model = fcnn.__dict__[args.arch](input_dim)
+    
+    if args.arch == 'fcnn_prune':
+        cfg = get_net_width(os.path.dirname(args.resume))
+        model = fcnn.__dict__[args.arch](cfg, input_dim, class_num)
+    else:
+        model = fcnn.__dict__[args.arch](input_dim, class_num)
 
     model.features = torch.nn.DataParallel(model.features)
 
@@ -134,12 +149,13 @@ def main():
     # criterion = nn.CrossEntropyLoss()
     criterion   = nn.NLLLoss()
 
-    print("===============================================================================");
-    print("Model :")
-    print(model)
-    print("\nCriterion :")
-    print(criterion)
-    print("\n===============================================================================");
+    if not args.evaluate:
+        print("===============================================================================");
+        print("Model :")
+        print(model)
+        print("\nCriterion :")
+        print(criterion)
+        print("\n===============================================================================");
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -154,8 +170,6 @@ def main():
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
-
-
     # Transfer model and criterion to default device
     model = model.to(device)
     criterion = criterion.to(device)
@@ -163,6 +177,7 @@ def main():
     stddev = args.std_dev
     distbn = torch.distributions.normal.Normal(0, stddev)
 
+    normalize  = transforms.Normalize(mean=[0], std=[1])
     if(dataset == "CIFAR10"):
         print("Running on CIFAR10")
         input_dim  = 1024
@@ -197,11 +212,24 @@ def main():
             accuracies = []
             examples   = []
 
-            if(dataset == "CIFAR10"):
+            transform_list=[transforms.ToTensor(), normalize]
+            if(dataset == "CIFAR10-gray"):
                 transform_list.append(transforms.Grayscale(num_output_channels=1))
                 val_loader = torch.utils.data.DataLoader(
                 datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
                 batch_size=1, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+            elif(dataset == "CIFAR10-rgb"):
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                batch_size=1, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+            elif(dataset == "CIFAR100-rgb"):
+                # Transform list for validation
+                transform_list=[transforms.ToTensor(), normalize]
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR100(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                batch_size=args.test_batch_size, shuffle=False,
                 num_workers=args.workers, pin_memory=True)
             elif (dataset == "MNIST"):
                 val_loader = torch.utils.data.DataLoader(
@@ -225,26 +253,51 @@ def main():
             else:
                 print("No augmentation used in testing")
 
-            if(dataset == "CIFAR10"):
+            transform_list=[transforms.ToTensor(), normalize]
+            if(dataset == "CIFAR10-gray"):
+                transform_list.append(transforms.Grayscale(num_output_channels=1))
                 val_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                datasets.CIFAR10(root='./data', train=args.eval_train_data,
+                                    transform=transforms.Compose(transform_list), download=True),
                 batch_size=args.test_batch_size, shuffle=False,
                 num_workers=args.workers, pin_memory=True)
 
                 #features, acc = get_features(val_loader, model, criterion)
+            elif(dataset == "CIFAR10-rgb"):
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                batch_size=1, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+            elif(dataset == "CIFAR100-rgb"):
+                # Transform list for validation
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR100(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                batch_size=args.test_batch_size, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
             elif (dataset == "MNIST"):
                 val_loader = torch.utils.data.DataLoader(
-                datasets.MNIST(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                datasets.MNIST(root='./data', train=args.eval_train_data, 
+                                    transform=transforms.Compose(transform_list), download=True),
                 batch_size=args.test_batch_size, shuffle=False,
                 num_workers=args.workers, pin_memory=True)
             else:
                 print("Unknown Dataset")
-
-
-            acc = validate(val_loader, model, criterion, 1, device, fcnn_flag)
-
+            print('datasize:', len(val_loader.dataset))
+            if not args.eval_stable: 
+                acc = validate(val_loader, model, criterion, 1, device, fcnn_flag)
+                print('acc:', acc)
+            else:
+                print('load checkpoints: ', args.resume)
+                active_states, acc = eval_active_state(val_loader, model, criterion, fcnn_flag)
+                # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
+                stably_active_ind, stably_inactive_ind = find_stable_neurons(active_states)
+                # write the index into the checkpoints' folder
+                np.save(os.path.join(os.path.dirname(args.resume), 'stable_neurons.npy'), {
+                            'stably_active': stably_active_ind.numpy(),
+                            'stably_inactive': stably_inactive_ind.numpy()
+                })
             # Write model weights in CPLEX Format
-            save_weights_in_cplex_format(model, os.path.dirname(args.resume), os.path.basename(args.resume), input_dim, acc, sep)
+            #save_weights_in_cplex_format(model, os.path.dirname(args.resume), os.path.basename(args.resume), input_dim, acc, sep)
 
 
             # Write tensor to csv file for future use in the same directory as save
@@ -265,10 +318,9 @@ def main():
         #For training mode
 
 
-        if(dataset == "CIFAR10"):
+        if(dataset == "CIFAR10-gray"):
             # Transform list for validation
             transform_list=[transforms.Grayscale(num_output_channels=1), transforms.ToTensor(), normalize]
-
             val_loader = torch.utils.data.DataLoader(
             datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
             batch_size=args.test_batch_size, shuffle=False,
@@ -277,6 +329,26 @@ def main():
             # Transform list for training
             transform_list=[transforms.Grayscale(num_output_channels=1), transforms.ToTensor(), normalize]
 
+        if(dataset == "CIFAR10-rgb"):
+            # Transform list for validation
+            transform_list=[transforms.ToTensor(), normalize]
+            val_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+            batch_size=args.test_batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
+
+            # Transform list for training
+            transform_list=[transforms.ToTensor(), normalize]
+        if(dataset == "CIFAR100-rgb"):
+            # Transform list for validation
+            transform_list=[transforms.ToTensor(), normalize]
+            val_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR100(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+            batch_size=args.test_batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
+
+            # Transform list for training
+            transform_list=[transforms.ToTensor(), normalize]
         elif (dataset == "MNIST"):
             # Transform list for validation
             transform_list=[transforms.ToTensor(), normalize]
@@ -316,9 +388,17 @@ def main():
         print("lr decay gamma     = %.2f" %(lr_decay_gamma))
 
         print("\n\n")
-        if (dataset == "CIFAR10"):
+        transform_train=[
+                    transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
+                    transforms.RandomRotation(10),     #Rotates the image to a specified angel
+                    transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
+                    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Set the color params
+                    ]
+        if (dataset == "CIFAR10-gray"):
+            transform_train.extend([transforms.Grayscale(num_output_channels=1), transforms.ToTensor(), normalize])
             train_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose(transform_list), download=True),
+                datasets.CIFAR10(root='./data', train=True, 
+                    transform=transforms.Compose(transform_train), download=True),
                 batch_size=args.batch_size, shuffle=True,
                 num_workers=args.workers, pin_memory=True)
         elif (dataset == "MNIST"):
@@ -326,9 +406,23 @@ def main():
                 datasets.MNIST(root='./data', train=True, transform=transforms.Compose(transform_list), download=True),
                 batch_size=args.batch_size, shuffle=True,
                 num_workers=args.workers, pin_memory=True)
+        elif (dataset == 'CIFAR10-rgb'):
+            transform_train.extend([transforms.ToTensor(), normalize])
+            train_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR10(root='./data', train=True, 
+                    transform=transforms.Compose(transform_train), download=True),
+                batch_size=args.batch_size, shuffle=True,
+                num_workers=args.workers, pin_memory=True)
+        elif (dataset == 'CIFAR100-rgb'): 
+            transform_train.extend([transforms.ToTensor(), normalize])
+            train_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR100(root='./data', train=True, 
+                    transform=transforms.Compose(transform_train), download=True),
+                batch_size=args.batch_size, shuffle=True,
+                num_workers=args.workers, pin_memory=True)
         else:
             print("Unknown Dataset")
-
+        #import pdb;pdb.set_trace()
         # Optimizer
         optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum,  weight_decay=args.wd)
 
@@ -340,16 +434,18 @@ def main():
             criterion.half()
 
         # Start training
-        for epoch in range(args.start_epoch, args.epochs):
-
-            # adjust the learning rate
-            if (dataset == "CIFAR10"):
-                scheduler.step()
-                #adjust_learning_rate(optimizer, epoch)
-            elif (dataset == "MNIST"):
-                scheduler.step()
-            else:
-                print("Unknown Dataset")
+        for epoch in tqdm(range(args.start_epoch, args.epochs)):
+            
+            #TODO: adjust for the CIFAR10-rgb, cifar100-rgb 
+            scheduler.step()
+            ## adjust the learning rate
+            #if (dataset == "CIFAR10"):
+            #    scheduler.step()
+            #    #adjust_learning_rate(optimizer, epoch)
+            #elif (dataset == "MNIST"):
+            #    scheduler.step()
+            #else:
+            #    print("Unknown Dataset")
 
             # train for one epoch
             train(train_loader, model, criterion, optimizer, epoch,  device, fcnn_flag, args)
@@ -362,6 +458,16 @@ def main():
                 # Stop training it further. Saves some time especially with adversarial training.
                 if (epoch > 0 and dataset == "MNIST" and prec1 < 12):
                     sys.exit("Model DNC!!!")
+                if args.eval_stable:
+                    print('===========eval_stable============')
+                    active_states, acc = eval_active_state(train_loader, model, criterion, fcnn_flag)
+                    # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
+                    stably_active_ind, stably_inactive_ind = find_stable_neurons(active_states)
+                    # write the index into the checkpoints' folder
+                    np.save(os.path.join(args.save_dir, f'stable_neurons.npy'), {
+                                'stably_active': stably_active_ind.numpy(),
+                                'stably_inactive': stably_inactive_ind.numpy()
+                    })
 
             # remember best prec@1
             is_best = prec1 > best_prec1
@@ -396,10 +502,9 @@ def train(train_loader, model, criterion, optimizer, epoch,  device, fcnn_flag, 
     end = time.time()
 
     for i, (data, target) in enumerate(train_loader):
-
+        #import pdb;pdb.set_trace()
         # measure data loading time
         data_time.update(time.time() - end)
-
         # Send the data and label to the device
         data, target = data.to(device), target.to(device)
 
@@ -694,7 +799,6 @@ def save_weights_in_cplex_format(model, folder, file_name, input_dim, acc, sep):
         my_file.write("];" + "\n")
 
 
-
 ################################################################################
 # Logs features in the files
 ################################################################################
@@ -773,7 +877,111 @@ def get_features(val_loader, model, criterion):
 
     return activations, top1.avg
 
+################################################################################
+# Logs features in the files
+################################################################################
+def eval_active_state(val_loader, model, criterion, fcnn_flag):
 
+    batch_time = AverageMeter()
+    losses = AverageMeter()
+    top1 = AverageMeter()
+
+    shift = 2
+    linear_cnt = model.features.module.__len__() // 3
+    linear_width = [model.features.module[i*3].out_features for i in range(linear_cnt)]
+    active_states = [torch.zeros(len(val_loader.dataset), linear_width[i]) for i in range(linear_cnt)]
+    batch_size = val_loader.batch_size
+        
+    # switch to evaluate mode
+    model.eval()
+
+    end = time.time()
+    for i, (input, target) in enumerate(val_loader):
+        # target = target.cuda(async=True)
+        input_var = torch.autograd.Variable(input).cuda()
+        target_var = torch.autograd.Variable(target).cuda()
+        
+        if args.half:
+            input_var = input_var.half()
+        
+        if fcnn_flag:
+            input_var = input_var.view(input_var.shape[0],-1)
+
+        linear = {}
+        def get_linear(name):
+            def hook(m, i, o):
+                linear[name] = o.detach().cpu()
+            return hook
+
+        # attach hooks
+        hooks = []
+        for layer_i in range(linear_cnt):
+            hooks.append(model.features.module[layer_i*3].register_forward_hook(get_linear(f'fc{layer_i+1}')))
+
+        # compute output
+        output,_ = model(input_var)
+
+        # remove hooks
+        for layer_i in range(linear_cnt):
+            hooks[layer_i].remove()
+            
+
+        pred = output.max(1, keepdim=True)[1] # get the index of the max log-probability
+
+        start_id = i        * batch_size
+        end_id   = start_id + input_var.shape[0]
+        for layer_i in range(linear_cnt):
+            active_states[layer_i][start_id:end_id] = linear[f'fc{layer_i+1}'] >= 0
+        loss = criterion(output, target_var)
+
+        output = output.float()
+        loss = loss.float()
+
+        # measure accuracy and record loss
+        prec1 = accuracy(output.data, target_var)[0]
+        losses.update(loss.data, input.size(0))
+        top1.update(prec1, input.size(0))
+
+        # measure elapsed time
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+    print(f' * Prec@1 {top1.avg:.3f}  Elapsed time: {batch_time.sum:.3f}s')
+
+    return active_states, top1.avg
+
+
+################################################################################
+# Get the stable neuron indices from the active states
+################################################################################
+def find_stable_neurons(active_states):
+    stably_active_neurons = []
+    stably_inactive_neurons = []
+    for layer_idx,layer_state in enumerate(active_states):
+        # width is the neuron number in this layer
+        data_size, width = layer_state.shape
+
+        #import pdb;pdb.set_trace()
+        # get the index of stable neurons in this layer 
+        stably_active_idx = (layer_state.sum(dim=0) == data_size).nonzero(as_tuple=False)[:,None] 
+        stably_inactive_idx = (layer_state.sum(dim=0) == 0).nonzero(as_tuple=False)[:,None]
+        
+        # concatenate the layer index
+        stably_active_idx = torch.cat(
+                [torch.ones_like(stably_active_idx) * (layer_idx+1), stably_active_idx], dim=1)
+        stably_inactive_idx = torch.cat(
+                [torch.ones_like(stably_inactive_idx) * (layer_idx+1), stably_inactive_idx], dim=1)
+      
+        print(f'{layer_idx}-th layer: stably_active={stably_active_idx.shape[0]}, stably_inactive={stably_inactive_idx.shape[0]}')
+        stably_active_neurons.append(stably_active_idx) 
+        stably_inactive_neurons.append(stably_inactive_idx) 
+    
+    stably_active_neurons = torch.cat(stably_active_neurons, dim=0)
+    stably_inactive_neurons = torch.cat(stably_inactive_neurons, dim=0)
+    
+    print(f'Overall stably active: {stably_active_neurons.shape[0]}, stably inactive: {stably_inactive_neurons.shape[0]}')
+
+    return stably_active_neurons, stably_inactive_neurons
 
 ################################################################################
 # Writing tensor to csv files
@@ -932,6 +1140,17 @@ def test_adversarial(model, criterion, device, test_loader, epsilon):
     return final_acc, adv_examples
 
 
+def get_net_width(model_path):
+    ckp_path = os.path.join(model_path, 'pruned_checkpoint_120.tar')
+    if not os.path.exists(ckp_path):
+        print(f'No pruned model for {ckp_path}')
+    ckp = torch.load(ckp_path) 
+    w_names = sorted([name for name in ckp['state_dict'].keys()
+                            if 'weight' in name and 'features' in name])
+    widths = []
+    for name in w_names:
+        widths.append(ckp['state_dict'][name].shape[0])
+    return widths
 
 ################################################################################
 # Sets the learning rate to the initial LR decayed by 2 every 30 epochs.

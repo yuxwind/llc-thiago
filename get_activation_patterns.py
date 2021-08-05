@@ -61,6 +61,9 @@ import re
 
 import random
 
+from common.io import mkpath, mkdir
+from dir_lookup import *
+
 
 accuracy = None
 
@@ -221,6 +224,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument    ('-i', '--input'                                  , help = 'path of the input dat file'           , default='./weight_files/XOR.dat')
 ap.add_argument    ('-a', '--approx'           , action='store_true'  , help = 'use approx algorithm for calculation (default: False)')
 ap.add_argument    ('-b', '--bounds_only_flag' , action='store_true'  , help = 'bounds only flag (default: False)')
+ap.add_argument    ('--preprocess_all_samples' , action='store_true'  , help = 'preprocess the neuron stability using all training samples(default: False)')
+ap.add_argument    ('--preprocess_partial_samples' , action='store_true'  , help = 'preprocess the neuron stability using partial training samples(default: False)')
 ap.add_argument    ('-c', '--classify_flag'    , action='store_false' , help = 'classification flag (default: True)')
 ap.add_argument    ('-m', '--maximum'          , type=float           , help = 'maxima of the nodes (default: 1)'     , default='1')
 ap.add_argument    ('-x', '--xbar_file'                               , help = 'Center of the individual input nodes in csv format. Could be an image of the validation set.')
@@ -460,7 +465,21 @@ network = args.input[:args.input.rfind("/")] #args.input.split("/")[0]
 print("Network",network)
 print("Accuracy",accuracy)
 #f = open("RESULTS.txt","a+")
-f = open(os.path.join('results', os.path.basename(os.path.dirname(args.input)) + '.txt'), "a+")
+
+if args.formulation == 'neuron':
+    tag = OLD
+else:
+    if args.preprocess_all_samples:
+        tag = ALLPRE
+    elif args.preprocess_partial_samples:
+        tag = PARTPRE
+    else:
+        tag = NOPRE
+
+stb_dir = mkdir(os.path.join(stb_root, args.dataset, tag, cnt_rst))
+exp_name = os.path.basename(os.path.dirname(args.input))
+stable_neurons_path = mkpath(os.path.join(stb_dir, args.dataset, tag, stb_neuron, exp_name + '.npy'))
+f = open(mkpath(os.path.join(stb_dir, exp_name + '.txt')), "a+")
 f.write(network+", "+str(accuracy)+", , ")
 
 timeouts = 0
@@ -488,34 +507,51 @@ normalize = transforms.Normalize(mean=[0], std=[1]) #Images are already loaded i
 transform_list = [transforms.ToTensor(), normalize]
 if args.dataset == "MNIST": 
     data = datasets.MNIST(root='./data', train=True, transform=transforms.Compose(transform_list), download=True)
-elif args.dataset == "CIFAR10":
+elif args.dataset == "CIFAR10-gray" or args.dataset == "CIFAR10-rgb":
     data = datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose(transform_list), download=True)
+elif args.dataset == "CIFAR100-rgb":
+    data = datasets.CIFAR100(root='./data', train=True, transform=transforms.Compose(transform_list), download=True)
 n = data.__len__()
 max_nonupdates = 10
-if not determine_stability_per_unit:
-  for i in range(n):
-    (img, target) = data.__getitem__(random.randint(0,n))
-    imgf = torch.flatten(img)
-    input = [imgf[j].item() for j in range(nodes_per_layer[0])]
-    for l in range(1,tot_layers):
-        output = []
-        for j in range(nodes_per_layer[l]):
-            g = bias[l-1][j][0] + sum([ weights[l-1][j,k]*input[k] for k in range(nodes_per_layer[l-1]) ])
-            if g>0 and (l,j) in p_lst and remove_p:
-                p_lst.remove((l,j))
-            elif g<0 and (l,j) in q_lst and remove_q:
-                q_lst.remove((l,j))
-            output.append(max(0,g))
-        input = output
-    print(i, len(p_lst), len(q_lst))
-    size = len(p_lst)+len(q_lst)
-    if size < last_size:
-        last_size = size
-        last_update = i
-    if len(p_lst)+len(q_lst) < 1 or i > last_update + max_nonupdates:
-        #print(p_lst, q_lst)
-        print(i, last_update, max_nonupdates)
-        break
+to_preprocess_partial = args.preprocess_partial_samples
+to_preprocess_all = args.preprocess_all_samples
+if to_preprocess_partial:
+    if not determine_stability_per_unit:
+      for i in range(n):
+        #(img, target) = data.__getitem__(random.randint(0,n))
+        (img, target) = data.__getitem__(i)
+        imgf = torch.flatten(img)
+        input = [imgf[j].item() for j in range(nodes_per_layer[0])]
+        for l in range(1,tot_layers):
+            output = []
+            for j in range(nodes_per_layer[l]):
+                g = bias[l-1][j][0] + sum([ weights[l-1][j,k]*input[k] for k in range(nodes_per_layer[l-1]) ])
+                if g>0 and (l,j) in p_lst and remove_p:
+                    p_lst.remove((l,j))
+                elif g<0 and (l,j) in q_lst and remove_q:
+                    q_lst.remove((l,j))
+                output.append(max(0,g))
+            input = output
+        print(i, len(p_lst), len(q_lst))
+        size = len(p_lst)+len(q_lst)
+        if size < last_size:
+            last_size = size
+            last_update = i
+        if len(p_lst)+len(q_lst) < 1 or i > last_update + max_nonupdates:
+            #print(p_lst, q_lst)
+            print(i, last_update, max_nonupdates)
+            break
+if to_preprocess_all:
+    stable_from_sample_path = os.path.join(os.path.dirname(args.input), 'stable_neurons.npy')
+    stable_from_sample = np.load(stable_from_sample_path, allow_pickle=True).item()
+    q_lst_ = stable_from_sample['stably_active'].squeeze()
+    p_lst_ = stable_from_sample['stably_inactive'].squeeze()
+    if len(q_lst_.shape) == 1:
+        q_lst_ = q_lst_[None,:]
+    if len(p_lst_.shape) == 1:
+        p_lst_ = p_lst_[None,:]
+    q_lst = [(q_lst_[i,0], q_lst_[i,1]) for i in range(q_lst_.shape[0]) ]
+    p_lst = [(p_lst_[i,0], p_lst_[i,1]) for i in range(p_lst_.shape[0]) ]
 remaining = len(p_lst)+len(q_lst)
 
 for i in range(1,run_till_layer_index):
@@ -872,14 +908,15 @@ if determine_stability_per_network:
                 print("Layer %d Completed..." %(m))
 
                 matrix_list = []
-                for j in stably_active[m]:
-                  matrix_list.append([weights[m-1][j,k] for k in range(nodes_per_layer[m-1])])
+                #for j in stably_active[m]:
+                #  matrix_list.append([weights[m-1][j,k] for k in range(nodes_per_layer[m-1])])
+                #  import pdb;pdb.set_trace()
+                matrix_list = [weights[m-1][j] for j in stably_active[m]]
                 print("Active: ", stably_active[m])
-
                 #import numpy
                 #rank = numpy.linalg.matrix_rank(numpy.array(matrix_list))
-                #rank = torch.linalg.matrix_rank(torch.tensor(matrix_list))
-                rank = len(stably_active[m]) # torch.matrix_rank(torch.tensor(matrix_list))
+                rank = torch.linalg.matrix_rank(torch.tensor(matrix_list))
+                #rank = len(stably_active[m]) # torch.matrix_rank(torch.tensor(matrix_list))
 
                 print("Active rank: ", rank, "out of", len(stably_active[m]))
                 print("Inactive: ", stably_inactive[m])
@@ -893,6 +930,7 @@ time_after = time.time()
 f.write(str(time_after-time_before)+",, ")
 f.write(args.formulation+", "+args.feasible+",, "+str(remaining)+",, \n")
 f.close()
+np.save(stable_neurons_path, {'stably_active': stably_active, 'stably_inactive': stably_inactive})
 #print_bounds(tot_layers, nodes_per_layer, bounds)
 
 

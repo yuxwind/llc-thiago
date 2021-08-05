@@ -1,0 +1,12 @@
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100_0.00032500000000000004_0002/weights.dat --formulation neuron --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100_0.00032500000000000004_0003/weights.dat --formulation neuron --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100_0.00032500000000000004_0004/weights.dat --formulation neuron --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100_0.00032500000000000004_0005/weights.dat --formulation neuron --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100_0.00035_0001/weights.dat --formulation neuron --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100_0.00035_0002/weights.dat --formulation neuron --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100-100_0.0001_0002/weights.dat --formulation neuron --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100-100_0.0001_0003/weights.dat --formulation neuron --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100-100_0.0001_0004/weights.dat --formulation neuron --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100-100_0.0001_0005/weights.dat --formulation neuron --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100-100_0.000125_0001/weights.dat --formulation neuron --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples
+python get_activation_patterns.py -b --input ./model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_100-100-100_0.000125_0002/weights.dat --formulation neuron --time_limit 10800 --dataset CIFAR10-rgb --preprocess_all_samples

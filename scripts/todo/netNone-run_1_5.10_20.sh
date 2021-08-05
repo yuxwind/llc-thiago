@@ -1,0 +1,10 @@
+python train_fcnn.py --arch fcnn2b_d --save-dir ./model_dir/CIFAR100-rgb/dnn_CIFAR100-rgb_100-100_5e-05_0001 --l1 5e-05 --dataset CIFAR100-rgb --eval-stable 
+python train_fcnn.py --arch fcnn2b_d --save-dir ./model_dir/CIFAR100-rgb/dnn_CIFAR100-rgb_100-100_5e-05_0002 --l1 5e-05 --dataset CIFAR100-rgb --eval-stable 
+python train_fcnn.py --arch fcnn2b_d --save-dir ./model_dir/CIFAR100-rgb/dnn_CIFAR100-rgb_100-100_5e-05_0003 --l1 5e-05 --dataset CIFAR100-rgb --eval-stable 
+python train_fcnn.py --arch fcnn2b_d --save-dir ./model_dir/CIFAR100-rgb/dnn_CIFAR100-rgb_100-100_5e-05_0004 --l1 5e-05 --dataset CIFAR100-rgb --eval-stable 
+python train_fcnn.py --arch fcnn2b_d --save-dir ./model_dir/CIFAR100-rgb/dnn_CIFAR100-rgb_100-100_5e-05_0005 --l1 5e-05 --dataset CIFAR100-rgb --eval-stable 
+python train_fcnn.py --arch fcnn2b_d --save-dir ./model_dir/CIFAR100-rgb/dnn_CIFAR100-rgb_100-100_7.500000000000001e-05_0001 --l1 7.500000000000001e-05 --dataset CIFAR100-rgb --eval-stable 
+python train_fcnn.py --arch fcnn2b_d --save-dir ./model_dir/CIFAR100-rgb/dnn_CIFAR100-rgb_100-100_7.500000000000001e-05_0002 --l1 7.500000000000001e-05 --dataset CIFAR100-rgb --eval-stable 
+python train_fcnn.py --arch fcnn2b_d --save-dir ./model_dir/CIFAR100-rgb/dnn_CIFAR100-rgb_100-100_7.500000000000001e-05_0003 --l1 7.500000000000001e-05 --dataset CIFAR100-rgb --eval-stable 
+python train_fcnn.py --arch fcnn2b_d --save-dir ./model_dir/CIFAR100-rgb/dnn_CIFAR100-rgb_100-100_7.500000000000001e-05_0004 --l1 7.500000000000001e-05 --dataset CIFAR100-rgb --eval-stable 
+python train_fcnn.py --arch fcnn2b_d --save-dir ./model_dir/CIFAR100-rgb/dnn_CIFAR100-rgb_100-100_7.500000000000001e-05_0005 --l1 7.500000000000001e-05 --dataset CIFAR100-rgb --eval-stable 

@@ -1,8 +1,16 @@
 data/
 model_dir/
+logs
 logs/
+logs.bak/
+model_dir
+results/
+results-minit-wo_preprocess/
+results-mnist-preprocess_all/
+
 
 slurm-gpu-job.out
+*.tgz
 *.pyc
 #train*.sh
 #run*.sh
