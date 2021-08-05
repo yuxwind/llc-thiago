@@ -7,3 +7,5 @@ slurm-gpu-job.out
 #train*.sh
 #run*.sh
 RESULTS.txt
+*.tgz
+

@@ -117,6 +117,12 @@ def main():
     elif (dataset == "MNIST"):
         input_dim = 784
 
+    if args.arch == "lenet":
+        if(dataset == "CIFAR10"):
+            input_dim  = 32 
+        elif (dataset == "MNIST"):
+            input_dim = 28
+
     model = fcnn.__dict__[args.arch](input_dim)
 
     model.features = torch.nn.DataParallel(model.features)

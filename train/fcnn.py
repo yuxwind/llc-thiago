@@ -335,3 +335,7 @@ def fcnn6b(input_dim = 784):
 
 def fcnn6b_d(input_dim = 784):
     return FCNN(make_layers(cfg['Fb'], dropout=True, in_channels = input_dim))
+
+def lenet(input_dim=32):
+    return LeNet(input_dim)
+
