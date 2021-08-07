@@ -61,20 +61,21 @@ import re
 
 import random
 
-from .dataset import get_cifar10, get_mnist
+from common.io import mkpath, mkdir
+from dir_lookup import *
+from nn_milp_utils import parse_file
+
 
 accuracy = None
 
 time_before = time.time()
 
-
-################################################################################
-# Argument Parsing
-################################################################################
 ap = argparse.ArgumentParser()
 ap.add_argument    ('-i', '--input'                                  , help = 'path of the input dat file'           , default='./weight_files/XOR.dat')
 ap.add_argument    ('-a', '--approx'           , action='store_true'  , help = 'use approx algorithm for calculation (default: False)')
 ap.add_argument    ('-b', '--bounds_only_flag' , action='store_true'  , help = 'bounds only flag (default: False)')
+ap.add_argument    ('--preprocess_all_samples' , action='store_true'  , help = 'preprocess the neuron stability using all training samples(default: False)')
+ap.add_argument    ('--preprocess_partial_samples' , action='store_true'  , help = 'preprocess the neuron stability using partial training samples(default: False)')
 ap.add_argument    ('-c', '--classify_flag'    , action='store_false' , help = 'classification flag (default: True)')
 ap.add_argument    ('-m', '--maximum'          , type=float           , help = 'maxima of the nodes (default: 1)'     , default='1')
 ap.add_argument    ('-x', '--xbar_file'                               , help = 'Center of the individual input nodes in csv format. Could be an image of the validation set.')
@@ -82,7 +83,8 @@ ap.add_argument    ('-L', '--width_around_xbar', type=float           , help = '
 ap.add_argument    ('-f', '--formulation'                             , help = 'Formulation to be used: neuron, layer, network (default: network)', default='network')
 ap.add_argument    ('-F', '--feasible'                                , help = 'Injection of feasible solution based on network input: relaxation, random, off (default: relaxation; not available for neuron formulation)', default='relaxation')
 ap.add_argument    ('-t', '--time_limit', type=float                  , help = 'Time limit in seconds to conclude MILP solve (default: None)', default=None)
-ap.add_argument(        '--dataset'        , dest='dataset', type=str         , default='MNIST'     , help='Dataset to be used (default: MNIST)')
+ap.add_argument    ('--dataset'        , dest='dataset', type=str         , default='MNIST'     , help='Dataset to be used (default: MNIST)')
+ap.add_argument    ('--limit_input', action = 'store_true', help='Limit the input for MNIST (default: False)')
 args = ap.parse_args()
 
 
@@ -200,14 +202,25 @@ else:
 print("------------------------------------------------------------------------")
 
 
-################################################################################
-# Finding the bounds
-################################################################################
 network = args.input[:args.input.rfind("/")] #args.input.split("/")[0]
 print("Network",network)
 print("Accuracy",accuracy)
 #f = open("RESULTS.txt","a+")
-f = open(os.path.join('results', os.path.basename(os.path.dirname(args.input)) + '.txt'), "a+")
+
+if args.formulation == 'neuron':
+    tag = OLD
+else:
+    if args.preprocess_all_samples:
+        tag = ALLPRE
+    elif args.preprocess_partial_samples:
+        tag = PARTPRE
+    else:
+        tag = NOPRE
+
+stb_dir = mkdir(os.path.join(stb_root, args.dataset, tag, cnt_rst))
+exp_name = os.path.basename(os.path.dirname(args.input))
+stable_neurons_path = mkpath(os.path.join(stb_dir, args.dataset, tag, stb_neuron, exp_name + '.npy'))
+f = open(mkpath(os.path.join(stb_dir, exp_name + '.txt')), "a+")
 f.write(network+", "+str(accuracy)+", , ")
 
 timeouts = 0
@@ -221,6 +234,7 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import random
 
+# Initialize p_lst and q_list by adding all nodes
 p_lst = [(i,j) for i in range(1,tot_layers) for j in range(nodes_per_layer[i]) ]
 q_lst = [(i,j) for i in range(1,tot_layers) for j in range(nodes_per_layer[i]) ]
 print(-1,len(p_lst),len(q_lst))
@@ -231,40 +245,108 @@ max_nonupdates = 1
 remove_p = True
 remove_q = True
 
+# Load the training dataset to preprocess p_lst and q_lst
 normalize = transforms.Normalize(mean=[0], std=[1]) #Images are already loaded in [0,1]
 transform_list = [transforms.ToTensor(), normalize]
 if args.dataset == "MNIST": 
     data = datasets.MNIST(root='./data', train=True, transform=transforms.Compose(transform_list), download=True)
-elif args.dataset == "CIFAR10":
+elif args.dataset == "CIFAR10-gray":
+    transform_list.insert(0, transforms.Grayscale(num_output_channels=1))
     data = datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose(transform_list), download=True)
+elif args.dataset == "CIFAR10-rgb":
+    data = datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose(transform_list), download=True)
+elif args.dataset == "CIFAR100-rgb":
+    data = datasets.CIFAR100(root='./data', train=True, transform=transforms.Compose(transform_list), download=True)
 n = data.__len__()
 max_nonupdates = 10
-if not determine_stability_per_unit:
-  for i in range(n):
-    (img, target) = data.__getitem__(random.randint(0,n))
-    imgf = torch.flatten(img)
-    input = [imgf[j].item() for j in range(nodes_per_layer[0])]
-    for l in range(1,tot_layers):
-        output = []
-        for j in range(nodes_per_layer[l]):
-            g = bias[l-1][j][0] + sum([ weights[l-1][j,k]*input[k] for k in range(nodes_per_layer[l-1]) ])
-            if g>0 and (l,j) in p_lst and remove_p:
-                p_lst.remove((l,j))
-            elif g<0 and (l,j) in q_lst and remove_q:
-                q_lst.remove((l,j))
-            output.append(max(0,g))
-        input = output
-    print(i, len(p_lst), len(q_lst))
-    size = len(p_lst)+len(q_lst)
-    if size < last_size:
-        last_size = size
-        last_update = i
-    if len(p_lst)+len(q_lst) < 1 or i > last_update + max_nonupdates:
-        #print(p_lst, q_lst)
-        print(i, last_update, max_nonupdates)
-        break
+
+# Initialize p_lst and q_lst by loading the stability from running model on training data
+to_preprocess_partial = args.preprocess_partial_samples
+to_preprocess_all = args.preprocess_all_samples
+if to_preprocess_partial:
+    if not determine_stability_per_unit:
+      for i in range(n):
+        #(img, target) = data.__getitem__(random.randint(0,n))
+        (img, target) = data.__getitem__(i)
+        imgf = torch.flatten(img)
+        input = [imgf[j].item() for j in range(nodes_per_layer[0])]
+        for l in range(1,tot_layers):
+            output = []
+            for j in range(nodes_per_layer[l]):
+                g = bias[l-1][j][0] + sum([ weights[l-1][j,k]*input[k] for k in range(nodes_per_layer[l-1]) ])
+                if g>0 and (l,j) in p_lst and remove_p:
+                    p_lst.remove((l,j))
+                elif g<0 and (l,j) in q_lst and remove_q:
+                    q_lst.remove((l,j))
+                output.append(max(0,g))
+            input = output
+        print(i, len(p_lst), len(q_lst))
+        size = len(p_lst)+len(q_lst)
+        if size < last_size:
+            last_size = size
+            last_update = i
+        if len(p_lst)+len(q_lst) < 1 or i > last_update + max_nonupdates:
+            #print(p_lst, q_lst)
+            print(i, last_update, max_nonupdates)
+            break
+if to_preprocess_all:
+    stable_from_sample_path = os.path.join(os.path.dirname(args.input), 'stable_neurons.npy')
+    stable_from_sample = np.load(stable_from_sample_path, allow_pickle=True).item()
+    q_lst_ = stable_from_sample['stably_active'].squeeze()
+    p_lst_ = stable_from_sample['stably_inactive'].squeeze()
+    if len(q_lst_.shape) == 1:
+        q_lst_ = q_lst_[None,:]
+    if len(p_lst_.shape) == 1:
+        p_lst_ = p_lst_[None,:]
+    q_lst = [(q_lst_[i,0], q_lst_[i,1]) for i in range(q_lst_.shape[0]) ]
+    p_lst = [(p_lst_[i,0], p_lst_[i,1]) for i in range(p_lst_.shape[0]) ]
 remaining = len(p_lst)+len(q_lst)
 
+
+def networkcallback(model, where):
+    global p, q, i, nodes_per_layer, positive_units, negative_units
+    global h
+    global lst
+
+    if where == GRB.Callback.MIPSOL:
+        print("FOUND A SOLUTION")
+        p_value = model.cbGetSolution(p)
+        q_value = model.cbGetSolution(q)
+        for (m,n) in p_lst:
+            if p_value[m,n] == 1:
+                positive_units.add((m,n))
+                model.cbLazy(p[m,n] == 0)
+                #print("+",m,n)
+        for (m,n) in q_lst:
+            if q_value[m,n] == 1:
+                negative_units.add((m,n))
+                model.cbLazy(q[m,n] == 0)
+                #print("-",m,n)
+    elif where == GRB.Callback.MIP:
+        objbnd = model.cbGet(GRB.Callback.MIP_OBJBND)
+        print("BOUND:", objbnd)
+        if objbnd<0.5:
+            model.terminate()
+    elif where == GRB.Callback.MIPNODE:
+        print("MIPNODE")
+        vars = []
+        values = []
+
+        if inject_relaxed_solution:
+            for input in range(nodes_per_layer[0]):
+                vars.append(h[0,input])
+            values = model.cbGetNodeRel(vars)
+            model.cbSetSolution(vars,values)
+        elif inject_random_solution:
+            for input in range(nodes_per_layer[0]):
+                vars.append(h[0,input])
+                values.append(bounds[0, input, 0] + random.random()*(bounds[0, input, 1]-bounds[0, input, 0]))
+            model.cbSetSolution(vars,values)
+
+        #obj = model.cbUseSolution()
+        #print("GOT",obj)
+
+#
 if determine_stability_per_network:
             for i in range(1,run_till_layer_index):
 
@@ -304,7 +386,9 @@ if determine_stability_per_network:
             # 0 index in bounds is for maxima and 1 index in bounds is for minima
             model.addConstrs( h[0, k] <= bounds[0, k, 0] for k in range(nodes_per_layer[0]))
             model.addConstrs( h[0, k] >= bounds[0, k, 1] for k in range(nodes_per_layer[0]))
-
+            if args.limit_input and args.dataset == 'MNIST':
+                model.addConstr( quicksum(h[0, k] for k in range(nodes_per_layer[0])) <= 320.0 )
+                model.addConstr( quicksum(h[0, k] for k in range(nodes_per_layer[0])) >= 15.0  )
 
 
 
@@ -314,7 +398,11 @@ if determine_stability_per_network:
                 for n in range(nodes_per_layer[m]):
 
                     name = "c_" + str(m) + str(n)
-                    model.addConstr(quicksum(weights[m-1][n,k] * h[m-1,k] for k in range(nodes_per_layer[m-1])) + bias[m-1][n] - g[m,n] == 0, name + "_1")
+                    model.addConstr(
+                            quicksum(
+                                weights[m-1][n,k] * h[m-1,k] for k in range(nodes_per_layer[m-1])
+                            ) + bias[m-1][n] - g[m,n] == 0, 
+                            name + "_1")
                     model.addConstr(g[m,n]    == h[m,n] - hbar[m,n], name + "_2")
                     model.addConstr(h[m,n]    <= 2*bounds[m, n, 0] * z[m,n], name + "_3")
 
@@ -356,14 +444,15 @@ if determine_stability_per_network:
                 print("Layer %d Completed..." %(m))
 
                 matrix_list = []
-                for j in stably_active[m]:
-                  matrix_list.append([weights[m-1][j,k] for k in range(nodes_per_layer[m-1])])
+                #for j in stably_active[m]:
+                #  matrix_list.append([weights[m-1][j,k] for k in range(nodes_per_layer[m-1])])
+                #  import pdb;pdb.set_trace()
+                matrix_list = [weights[m-1][j] for j in stably_active[m]]
                 print("Active: ", stably_active[m])
-
-                #import numpy
-                #rank = numpy.linalg.matrix_rank(numpy.array(matrix_list))
+                import numpy
+                rank = numpy.linalg.matrix_rank(numpy.array(matrix_list))
                 #rank = torch.linalg.matrix_rank(torch.tensor(matrix_list))
-                rank = len(stably_active[m]) # torch.matrix_rank(torch.tensor(matrix_list))
+                #rank = len(stably_active[m]) # torch.matrix_rank(torch.tensor(matrix_list))
 
                 print("Active rank: ", rank, "out of", len(stably_active[m]))
                 print("Inactive: ", stably_inactive[m])
@@ -377,10 +466,10 @@ time_after = time.time()
 f.write(str(time_after-time_before)+",, ")
 f.write(args.formulation+", "+args.feasible+",, "+str(remaining)+",, \n")
 f.close()
+np.save(stable_neurons_path, {'stably_active': stably_active, 'stably_inactive': stably_inactive})
 #print_bounds(tot_layers, nodes_per_layer, bounds)
 
 
-################################################################################
 # If we have to do only bounds, do not go for activations
 ################################################################################
 if (args.bounds_only_flag):
@@ -389,6 +478,7 @@ if (args.bounds_only_flag):
 
 # Reseting the parameters of the model
 model.reset()
+
 print("")
 
 # Writing the activation patterns to a file
@@ -396,74 +486,4 @@ my_file = open(os.path.join(os.path.dirname(args.input), activation_pattern_file
 my_file.write("n = [" + ', '.join(map(str, nodes_per_layer)) + "]\n")
 
 
-################################################################################
-# Find all possible activation patterns
-################################################################################
-# Create a new model
-model = Model("mip2")
 
-if (not(disp_opt)):
-    # Donot display output solving
-    # https://stackoverflow.com/a/37137612
-    model.params.outputflag = 0
-
-# Create variables
-g    = model.addVars(lst, lb=-GRB.INFINITY, name="g")
-h    = model.addVars(lst, lb=0.0          , name="h")
-hbar = model.addVars(lst, lb=0.0          , name="hbar")
-z    = model.addVars(lst, vtype=GRB.BINARY, name="z")
-f    = model.addVar (     lb=0.0          , name="f")
-
-# For Lazy cuts
-# Set the "LazyConstraints" parameter to 1 in order to tell Gurobi that it does
-# not know all the model constraints. Essentially, this disables dual presolve
-# reductions.
-model.params.LazyConstraints = 1
-
-# Specify bounds of the input variables.
-# 0 index in bounds is for maxima and 1 index in bounds is for minima
-model.addConstrs( h[0, k] <= bounds[0, k, 0] for k in range(nodes_per_layer[0]))
-model.addConstrs( h[0, k] >= bounds[0, k, 1] for k in range(nodes_per_layer[0]))
-
-
-# Add constraints for all the nodes starting from the input layer till the last layer
-for m in range(1, run_till_layer_index):
-    for n in range(nodes_per_layer[m]):
-        name = "c_" + str(m) + str(n)
-        model.addConstr(quicksum(weights[m-1][n,k] * h[m-1,k] for k in range(nodes_per_layer[m-1])) + bias[m-1][n] - g[m,n] == 0, name + "_1")
-        model.addConstr(g[m,n]    == h[m,n] - hbar[m,n], name + "_2")
-        model.addConstr(h[m,n]    <= bounds[m, n, 0] * z[m,n], name + "_3")
-        model.addConstr(hbar[m,n] <= bounds[m, n, 1] * ( 1 - z[m,n] ), name + "_4")
-
-        # For stably inactive nodes, we add bounding constraint with bounds as 1
-        if (bounds[m, n, 0] > 0):
-            model.addConstr(f         <= h[m,n] + ( 1 - z[m,n] ) * bounds[m, n, 0] , name + "_10")
-        else:
-            model.addConstr(f         <= h[m,n] + ( 1 - z[m,n] )                   , name + "_10")
-
-
-model.setObjective(f , GRB.MAXIMIZE)
-
-# Pass data into mycallback function
-model._z               = z
-model._sol_count       = 0
-model._val_sol_count   = 0
-model._nodes_per_layer = nodes_per_layer
-model._my_file         = my_file
-
-now = time.time()
-
-if (show_activations):
-    print("Activation Patterns ")
-
-try:
-    model.optimize(mycallback)
-except GurobiError:
-    print("3 Error reported")
-
-# close the activations pattern file
-my_file.close()
-
-print("------------------------------------------------------------------------")
-print("%d Valid Activations Found. Time %.3f s"%(model._val_sol_count, (time.time() - now) ))
-print("------------------------------------------------------------------------")

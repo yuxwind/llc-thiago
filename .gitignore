@@ -7,7 +7,7 @@ model_dir
 results/
 results-minit-wo_preprocess/
 results-mnist-preprocess_all/
-
+results-restrict_input/*
 
 slurm-gpu-job.out
 *.tgz

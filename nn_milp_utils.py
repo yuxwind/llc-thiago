@@ -1,8 +1,5 @@
 #!/usr/bin/python
 
-"""
-"""
-
 import argparse
 import os
 import numpy as np
@@ -12,10 +9,9 @@ import re
 
 import random
 
+from common.io import mkpath, mkdir
+from dir_lookup import *
 
-accuracy = None
-
-time_before = time.time()
 
 ################################################################################
 # Line Parser
@@ -65,7 +61,7 @@ def parse_file(input):
     bias_flag   = True
     bias_layer_cnt = 0
 
-    with open(args.input, 'r') as fp:
+    with open(input, 'r') as fp:
         for cnt, line in enumerate(fp):
             # Remove trailing characters
             line = line.strip()
@@ -148,7 +144,7 @@ def print_bounds(tot_layers, nodes_per_layer, bounds):
     else:
         print("Number_stably_inactive_nodes {}".format(0))
 
-    with open(os.path.join(os.path.dirname(args.input), inactive_nodes_file), 'w') as the_file:
+    with open(os.path.join(os.path.dirname(input), inactive_nodes_file), 'w') as the_file:
         for i in range(r.shape[0]):
             l = r[i] + 1   #+1 since we have ignored the input nodes while printing
             u = c[i]
@@ -163,7 +159,6 @@ def print_bounds(tot_layers, nodes_per_layer, bounds):
         #print("------------------------------------------------------------------------")
     else:
         print("Number_stably_active_nodes   {}".format(0))
-
 
 
 def mycallback(model, where):
@@ -227,49 +222,6 @@ def layercallback(model, where):
                 values.append(bounds[0, input, 0] + random.random()*(bounds[0, input, 1]-bounds[0, input, 0]))
             model.cbSetSolution(vars,values)
 
-        #obj = model.cbUseSolution()
-        #print("GOT",obj)
-
-def networkcallback(model, where):
-    global p, q, i, nodes_per_layer, positive_units, negative_units
-    global h
-    global lst
-    
-    if where == GRB.Callback.MIPSOL:
-        print("FOUND A SOLUTION")
-        p_value = model.cbGetSolution(p)
-        q_value = model.cbGetSolution(q)
-        for (m,n) in p_lst:
-            if p_value[m,n] == 1:
-                positive_units.add((m,n))
-                model.cbLazy(p[m,n] == 0)
-                #print("+",m,n)
-        for (m,n) in q_lst:
-            if q_value[m,n] == 1:
-                negative_units.add((m,n))
-                model.cbLazy(q[m,n] == 0)
-                #print("-",m,n)
-    elif where == GRB.Callback.MIP:
-        objbnd = model.cbGet(GRB.Callback.MIP_OBJBND)
-        print("BOUND:", objbnd)
-        if objbnd<0.5:
-            model.terminate()
-    elif where == GRB.Callback.MIPNODE:
-        print("MIPNODE")
-        vars = []
-        values = []
-
-        if inject_relaxed_solution:
-            for input in range(nodes_per_layer[0]):
-                vars.append(h[0,input])
-            values = model.cbGetNodeRel(vars)
-            model.cbSetSolution(vars,values)
-        elif inject_random_solution:
-            for input in range(nodes_per_layer[0]):
-                vars.append(h[0,input])
-                values.append(bounds[0, input, 0] + random.random()*(bounds[0, input, 1]-bounds[0, input, 0]))
-            model.cbSetSolution(vars,values)
-           
         #obj = model.cbUseSolution()
         #print("GOT",obj)
 
@@ -359,3 +311,4 @@ def mycallback(model, where):
         else:
             pass
             # print("Invalid Solution Found")
+
