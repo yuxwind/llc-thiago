@@ -16,4 +16,4 @@ slurm-gpu-job.out
 #run*.sh
 RESULTS.txt
 *.tgz
-
+*.swp

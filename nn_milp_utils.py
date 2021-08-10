@@ -121,6 +121,17 @@ def parse_file(input):
 
     return layers, nodes_per_layer, weights, bias
 
+################################################################################
+# parse npy to get weights, bias
+################################################################################
+def parse_npy(fname):
+    data = np.load(fname, allow_pickle=True).item()
+    model_path = data['model_path']
+    layers     = data['layers']
+    nodes_per_layer = data['n']
+    weights    = data['weight']
+    bias       = data['bias']
+    return layers, nodes_per_layer, weights, bias
 
 ################################################################################
 # Print bounds
