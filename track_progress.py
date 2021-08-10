@@ -270,17 +270,17 @@ for i,l in enumerate(track_list):
             done = check_NP(exp)
         elif aid == 3:
             done = check_PRE(exp)
-            start_PRE(exp)
+            #start_PRE(exp)
         elif aid == 4:
             done = check_OD(exp)
         elif aid == 5:
             done = check_PRUNE(exp)
 
+        done=False
         if done is None:
             cur_state = 'X'
             unknown.append(exp)
             #todo.append(exp)
-
         elif done:
             cur_state = 'D'
         else:
