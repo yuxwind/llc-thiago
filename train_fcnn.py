@@ -36,6 +36,7 @@ import torchvision.datasets as datasets
 
 sys.path.insert(0, './train')
 import fcnn
+from utils import DataParallelPassThrough
 
 #import VGG
 import torch.nn.functional as F
@@ -43,7 +44,7 @@ import numpy as np
 
 model_names = sorted(name for name in fcnn.__dict__
     if name.islower() and not name.startswith("__")
-                     and name.startswith("fcnn")
+                     and (name.startswith("fcnn") or name == 'lenet')
                      and callable(fcnn.__dict__[name]))
 
 
@@ -91,6 +92,8 @@ adversarial_step_size     = 0.1
 adversarial_iterations    = 200
 lr_decay_step_size        = 50
 lr_decay_gamma            = 0.1
+lr_decay_step_size        = 30
+lr_decay_gamma            = 0.5
 dataset                   = "MNIST"#"CIFAR10" #"MNIST"
 
 
@@ -109,6 +112,8 @@ def main():
     fcnn_flag       = True
     sep             = "," #This is used for separating in weights.dat file
     save_frequency  = 120
+    eval_frequency  = 2
+    #save_frequency  = 1 # DEBUG
 
 
     # Check the save_dir exists or not
@@ -129,6 +134,7 @@ def main():
         class_num  = 100
     
     if args.arch == "lenet":
+        fcnn_flag = False
         if("CIFAR10" in dataset):
             input_dim  = 32 
         elif (dataset == "MNIST"):
@@ -140,7 +146,17 @@ def main():
     else:
         model = fcnn.__dict__[args.arch](input_dim, class_num)
 
-    model.features = torch.nn.DataParallel(model.features)
+    #model.features = torch.nn.DataParallel(model.features)
+    
+
+    try:
+        model.features = torch.nn.DataParallel(model.features)
+    except:
+        pass
+    try:
+        model.conv_features = torch.nn.DataParallel(model.conv_features)
+    except:
+        pass
 
     # define loss function (criterion)
     # If there is no softmax, use CrossEntropyLoss()
@@ -292,10 +308,88 @@ def main():
                 # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
                 stably_active_ind, stably_inactive_ind = find_stable_neurons(active_states)
                 # write the index into the checkpoints' folder
-                np.save(os.path.join(os.path.dirname(args.resume), 'stable_neurons.npy'), {
+                np.save(os.path.join(os.path.dirname(args.resume), 'stable_neurons.train.npy'), {
                             'stably_active': stably_active_ind.numpy(),
                             'stably_inactive': stably_inactive_ind.numpy()
                 })
+            # on eval dataset
+            args.eval_train_data = False
+            transform_list=[transforms.ToTensor(), normalize]
+            if(dataset == "CIFAR10-gray"):
+                transform_list.append(transforms.Grayscale(num_output_channels=1))
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR10(root='./data', train=args.eval_train_data,
+                                    transform=transforms.Compose(transform_list), download=True),
+                batch_size=args.test_batch_size, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+
+                #features, acc = get_features(val_loader, model, criterion)
+            elif(dataset == "CIFAR10-rgb"):
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                batch_size=1, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+            elif(dataset == "CIFAR100-rgb"):
+                # Transform list for validation
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR100(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                batch_size=args.test_batch_size, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+            elif (dataset == "MNIST"):
+                val_loader = torch.utils.data.DataLoader(
+                datasets.MNIST(root='./data', train=args.eval_train_data, 
+                                    transform=transforms.Compose(transform_list), download=True),
+                batch_size=args.test_batch_size, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+            else:
+                print("Unknown Dataset")
+            print('datasize:', len(val_loader.dataset))
+            if not args.eval_stable: 
+                acc = validate(val_loader, model, criterion, 1, device, fcnn_flag)
+                print('acc:', acc)
+            else:
+                print('load checkpoints: ', args.resume)
+                active_states_, acc = eval_active_state(val_loader, model, criterion, fcnn_flag)
+                # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
+                stably_active_ind_, stably_inactive_ind_ = find_stable_neurons(active_states_)
+                import pdb;pdb.set_trace()
+
+                def diff_arr(arr1, arr2): # for train, test, Nx2x1 
+                    s1=[]
+                    s2=[]
+                    for i in range(arr1.shape[0]):
+                        s1.append(f'{arr1[i,0,0]}-{arr1[i,1,0]}')
+                    for i in range(arr2.shape[0]):
+                        s2.append(f'{arr2[i,0,0]}-{arr2[i,1,0]}')
+                    s1 = set(s1)
+                    s2 = set(s2)
+                    wrong_train = len(s1-s2)/len(s1)
+                    return wrong_train, len(s1), len(s2)
+                    
+
+                wrong_train1, cc_train1, cc_test1 = diff_arr(stably_inactive_ind, 
+                        stably_inactive_ind_)
+                wrong_train2, cc_train2, cc_test2 = diff_arr(stably_active_ind, stably_active_ind_)
+                fpath = os.path.join(os.path.dirname(args.resume), 'preprocesss-train_test.txt')
+                with open(fpath, 'w') as f:
+                    info = args.resume + f', {cc_train2}, {cc_test2}, {wrong_train2:.04f}'  + \
+                            f',, {cc_train1}, {cc_test1}, {wrong_train1:.04f}'
+                    print(info)
+                    f.write(info + '\n')
+
+
+                # write the index into the checkpoints' folder
+                np.save(os.path.join(os.path.dirname(args.resume), 'stable_neurons.train_test.npy'), {
+                            'stably_active.train': stably_active_ind.numpy(),
+                            'stably_inactive.train': stably_inactive_ind.numpy(),
+                            'stably_active.eval': stably_active_ind_.numpy(),
+                            'stably_inactive.eval': stably_inactive_ind_.numpy(),
+                            'stably_active.diff':   [ cc_train2, cc_test2, wrong_train2],
+                            'stably_inactive.diff': [ cc_train1, cc_test1, wrong_train1]
+                })
+            args.eval_train_data = True
+
+                
             # Write model weights in CPLEX Format
             #save_weights_in_cplex_format(model, os.path.dirname(args.resume), os.path.basename(args.resume), input_dim, acc, sep)
 
@@ -382,7 +476,7 @@ def main():
         print("lr                 = %.4f" %(args.lr))
         print("momentum           = %.4f" %(args.momentum))
         print("weight decay       = %.4f" %(args.wd))
-        print("l1 regul           = %.4f" %(args.l1))
+        print("l1 regul           = %.5f" %(args.l1))
         print("epochs             = %d"   %(args.epochs))
         print("lr decay step size = %d"   %(lr_decay_step_size))
         print("lr decay gamma     = %.2f" %(lr_decay_gamma))
@@ -438,10 +532,11 @@ def main():
             
             #TODO: adjust for the CIFAR10-rgb, cifar100-rgb 
             scheduler.step()
+            #adjust_learning_rate(optimizer, epoch)
             ## adjust the learning rate
             #if (dataset == "CIFAR10"):
-            #    scheduler.step()
-            #    #adjust_learning_rate(optimizer, epoch)
+            #    #scheduler.step()
+            #    adjust_learning_rate(optimizer, epoch)
             #elif (dataset == "MNIST"):
             #    scheduler.step()
             #else:
@@ -449,15 +544,16 @@ def main():
 
             # train for one epoch
             train(train_loader, model, criterion, optimizer, epoch,  device, fcnn_flag, args)
-
+            #import pdb;pdb.set_trace()
             # evaluate on validation set
-            if (epoch % save_frequency == 0):
+            if (epoch % eval_frequency == 0):
                 prec1 = validate(val_loader, model, criterion, epoch, device, fcnn_flag)
 
                 # For MNIST dataset, if accuracy is close to 10%, the model did not converge.
                 # Stop training it further. Saves some time especially with adversarial training.
                 if (epoch > 0 and dataset == "MNIST" and prec1 < 12):
                     sys.exit("Model DNC!!!")
+            if (epoch % save_frequency == 0):
                 if args.eval_stable:
                     print('===========eval_stable============')
                     active_states, acc = eval_active_state(train_loader, model, criterion, fcnn_flag)
@@ -481,7 +577,9 @@ def main():
                     'best_prec1': best_prec1,
                 }, is_best, filename=os.path.join(args.save_dir, 'checkpoint_{}.tar'.format(epoch)))
 
-                save_weights_in_cplex_format(model, args.save_dir, "checkpoint_" + str(epoch) +  ".tar", input_dim, prec1, sep)
+                #save_weights_in_cplex_format(model, args.save_dir, "checkpoint_" + str(epoch) +  ".tar", input_dim, prec1, sep)
+                save_weights_in_npy_format(model, args.save_dir, 
+                        'checkpoint_{}.tar'.format(epoch), input_dim, prec1)
 
 
 ################################################################################
@@ -533,9 +631,10 @@ def train(train_loader, model, criterion, optimizer, epoch,  device, fcnn_flag, 
             # compute the l1 loss
             # https://discuss.pytorch.org/t/how-to-create-compound-loss-mse-l1-norm-regularization/17171/4
             for m in model.modules():
-                if isinstance(m, nn.Linear):
+                if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
                     regularization_loss += torch.sum(torch.abs(m.weight))
                     #break # for the l1 regularization on the first layer itself break
+            #import pdb;pdb.set_trace()
             loss        = criterion(output, target) + args.l1*regularization_loss
 
         # compute gradient and do SGD step
@@ -557,16 +656,6 @@ def train(train_loader, model, criterion, optimizer, epoch,  device, fcnn_flag, 
         batch_time.update(time.time() - end)
         end = time.time()
 
-        """
-        if i % args.print_freq == 0:
-            print('Epoch Gen: [{0}][{1}/{2}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-                      epoch, i, len(train_loader), batch_time=batch_time,
-                      data_time=data_time, loss=losses, top1=top1))
-        """
 
         # Carry out adeversarial training as well
         if args.adversarial:
@@ -626,7 +715,15 @@ def train(train_loader, model, criterion, optimizer, epoch,  device, fcnn_flag, 
                           epoch, i, len(train_loader), batch_time=batch_time,
                           data_time=data_time, loss=adv_losses, top1=adv_top1))
             """
-
+    """
+    print('Epoch Gen: [{0}][{1}/{2}]\t'
+                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                  'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
+                      epoch, i, len(train_loader), batch_time=batch_time,
+                      data_time=data_time, loss=losses, top1=top1))
+    """
 
 
 ################################################################################
@@ -734,6 +831,46 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
 
 
 ################################################################################
+# Saves weights and biases in npy format
+################################################################################
+def save_weights_in_npy_format(model, folder, file_name, input_dim, acc):
+    # Writing weights and bias to a file
+    npy_file_path = os.path.join(folder,  "weights.npy")
+    npy_dict = {}
+
+    # Use a list to store the weights. We donot unravel it here since we will be
+    # writing one row in one line in the dat file.
+    weights = []
+    bias    = []
+
+    params = model.state_dict()
+    layers = 0
+    hidden = [input_dim]
+
+    for key, value in params.items():
+        if ('weight' in  key):
+            layers += 1
+            if 'conv_features.0.weight' in key:   # for conv1 in lenet
+                hidden.append(28*28*6)
+            elif 'conv_features.3.weight' in key: # for conv2 in lenet
+                hidden.append(10*10*16)
+            else:                                 # for fc
+                hidden.append(value.shape[0])
+            weights.append(value.cpu().detach().numpy())
+        if ('bias' in key):
+            bias   .append(value.cpu().detach().numpy())
+
+    npy_dict['model_path'] = os.path.join(folder, file_name)
+    npy_dict['acc'] = acc
+    npy_dict['layers'] = layers
+    npy_dict['n'] = hidden
+    npy_dict['weight'] = weights
+    npy_dict['bias']   = bias
+
+    #import pdb;pdb.set_trace()
+    np.save(npy_file_path, npy_dict)
+
+################################################################################
 # Saves weights and biases in CPLEX format
 ################################################################################
 def save_weights_in_cplex_format(model, folder, file_name, input_dim, acc, sep):
@@ -767,7 +904,7 @@ def save_weights_in_cplex_format(model, folder, file_name, input_dim, acc, sep):
         my_file.write("//Classification accuracy = " + str(acc) + "%\n\n")
         my_file.write("levels = " + str(layers) + ";\n\n")
         my_file.write("n = [" + ', '.join(map(str,hidden)) + "];\n\n")
-
+        
         # Write weights
         my_file.write("W = [" + "\n")
 
@@ -885,22 +1022,33 @@ def eval_active_state(val_loader, model, criterion, fcnn_flag):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
+    N    = len(val_loader.dataset)
 
-    shift = 2
-    linear_cnt = model.features.module.__len__() // 3
-    linear_width = [model.features.module[i*3].out_features for i in range(linear_cnt)]
-    active_states = [torch.zeros(len(val_loader.dataset), linear_width[i]) for i in range(linear_cnt)]
+    if not fcnn_flag:
+        LBLK = 2 # how many layers in a linear block 
+        CBLK = 3 # how many layers in a conv block
+        conv_cnt = model.conv_features.module.__len__() // CBLK
+        conv_out_size = [[6,28,28], [16,10,10]]
+        conv_active_states = [
+                torch.zeros([N, 6,28,28]), torch.zeros([N, 16,10,10])]
+    else:
+        LBLK = 3 
+        conv_cnt = 0
+        conv_active_states = []
+    linear_cnt = model.features.module.__len__() // LBLK
+    linear_width = [model.features.module[i*LBLK].out_features for i in range(linear_cnt)]
+    active_states = [torch.zeros(N, linear_width[i]) for i in range(linear_cnt)]
     batch_size = val_loader.batch_size
         
     # switch to evaluate mode
     model.eval()
 
     end = time.time()
-    for i, (input, target) in enumerate(val_loader):
+    for ii, (input, target) in enumerate(val_loader):
         # target = target.cuda(async=True)
         input_var = torch.autograd.Variable(input).cuda()
         target_var = torch.autograd.Variable(target).cuda()
-        
+
         if args.half:
             input_var = input_var.half()
         
@@ -912,11 +1060,20 @@ def eval_active_state(val_loader, model, criterion, fcnn_flag):
             def hook(m, i, o):
                 linear[name] = o.detach().cpu()
             return hook
-
+        
+        conv = {}
+        def get_conv(name):
+            def hook(m, i, o):
+                conv[name] = o.detach().cpu()
+            return hook
         # attach hooks
         hooks = []
         for layer_i in range(linear_cnt):
-            hooks.append(model.features.module[layer_i*3].register_forward_hook(get_linear(f'fc{layer_i+1}')))
+            hooks.append(model.features.module[layer_i*LBLK].register_forward_hook(get_linear(f'fc{layer_i+1}')))
+
+        conv_hooks = []
+        for layer_i in range(conv_cnt):
+            conv_hooks.append(model.conv_features.module[layer_i*CBLK].register_forward_hook(get_conv(f'conv{layer_i+1}')))
 
         # compute output
         output,_ = model(input_var)
@@ -924,14 +1081,18 @@ def eval_active_state(val_loader, model, criterion, fcnn_flag):
         # remove hooks
         for layer_i in range(linear_cnt):
             hooks[layer_i].remove()
+        for layer_i in range(conv_cnt):
+            conv_hooks[layer_i].remove()
             
 
         pred = output.max(1, keepdim=True)[1] # get the index of the max log-probability
 
-        start_id = i        * batch_size
+        start_id = ii        * batch_size
         end_id   = start_id + input_var.shape[0]
         for layer_i in range(linear_cnt):
             active_states[layer_i][start_id:end_id] = linear[f'fc{layer_i+1}'] >= 0
+        for layer_i in range(conv_cnt):
+            conv_active_states[layer_i][start_id:end_id] = conv[f'conv{layer_i+1}'] >= 0
         loss = criterion(output, target_var)
 
         output = output.float()
@@ -947,8 +1108,11 @@ def eval_active_state(val_loader, model, criterion, fcnn_flag):
         end = time.time()
 
     print(f' * Prec@1 {top1.avg:.3f}  Elapsed time: {batch_time.sum:.3f}s')
+    all_states = []
+    all_states.extend([s.reshape(s.shape[0],-1) for s in conv_active_states]) # flatten the states
+    all_states.extend(active_states)
 
-    return active_states, top1.avg
+    return all_states, top1.avg
 
 
 ################################################################################
@@ -1157,8 +1321,11 @@ def get_net_width(model_path):
 # Adjunct. No longer needed
 ################################################################################
 def adjust_learning_rate(optimizer, epoch):
-
-    lr = args.lr * (0.5 ** (epoch // 30))
+    if epoch < 100:
+        lr = 0.01
+    elif epoch < 150:
+        lr = 0.005
+    #lr = args.lr * (0.5 ** (epoch // 30))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 

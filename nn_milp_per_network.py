@@ -431,6 +431,10 @@ if determine_stability_per_network:
                         timed_out = True
             except GurobiError as e:
                     print("3 Error reported")
+            print('Obj: %g' % (model.objVal))
+            print(quicksum(p[m, n] for (m, n) in p_lst))
+            print(quicksum(q[m, n] for (m, n) in q_lst))
+            import pdb;pdb.set_trace()		
 
             for m in range(1, run_till_layer_index):
               for n in range(nodes_per_layer[m]):
