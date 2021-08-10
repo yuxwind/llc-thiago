@@ -308,10 +308,88 @@ def main():
                 # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
                 stably_active_ind, stably_inactive_ind = find_stable_neurons(active_states)
                 # write the index into the checkpoints' folder
-                np.save(os.path.join(os.path.dirname(args.resume), 'stable_neurons.npy'), {
+                np.save(os.path.join(os.path.dirname(args.resume), 'stable_neurons.train.npy'), {
                             'stably_active': stably_active_ind.numpy(),
                             'stably_inactive': stably_inactive_ind.numpy()
                 })
+            # on eval dataset
+            args.eval_train_data = False
+            transform_list=[transforms.ToTensor(), normalize]
+            if(dataset == "CIFAR10-gray"):
+                transform_list.append(transforms.Grayscale(num_output_channels=1))
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR10(root='./data', train=args.eval_train_data,
+                                    transform=transforms.Compose(transform_list), download=True),
+                batch_size=args.test_batch_size, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+
+                #features, acc = get_features(val_loader, model, criterion)
+            elif(dataset == "CIFAR10-rgb"):
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                batch_size=1, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+            elif(dataset == "CIFAR100-rgb"):
+                # Transform list for validation
+                val_loader = torch.utils.data.DataLoader(
+                datasets.CIFAR100(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
+                batch_size=args.test_batch_size, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+            elif (dataset == "MNIST"):
+                val_loader = torch.utils.data.DataLoader(
+                datasets.MNIST(root='./data', train=args.eval_train_data, 
+                                    transform=transforms.Compose(transform_list), download=True),
+                batch_size=args.test_batch_size, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
+            else:
+                print("Unknown Dataset")
+            print('datasize:', len(val_loader.dataset))
+            if not args.eval_stable: 
+                acc = validate(val_loader, model, criterion, 1, device, fcnn_flag)
+                print('acc:', acc)
+            else:
+                print('load checkpoints: ', args.resume)
+                active_states_, acc = eval_active_state(val_loader, model, criterion, fcnn_flag)
+                # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
+                stably_active_ind_, stably_inactive_ind_ = find_stable_neurons(active_states_)
+                import pdb;pdb.set_trace()
+
+                def diff_arr(arr1, arr2): # for train, test, Nx2x1 
+                    s1=[]
+                    s2=[]
+                    for i in range(arr1.shape[0]):
+                        s1.append(f'{arr1[i,0,0]}-{arr1[i,1,0]}')
+                    for i in range(arr2.shape[0]):
+                        s2.append(f'{arr2[i,0,0]}-{arr2[i,1,0]}')
+                    s1 = set(s1)
+                    s2 = set(s2)
+                    wrong_train = len(s1-s2)/len(s1)
+                    return wrong_train, len(s1), len(s2)
+                    
+
+                wrong_train1, cc_train1, cc_test1 = diff_arr(stably_inactive_ind, 
+                        stably_inactive_ind_)
+                wrong_train2, cc_train2, cc_test2 = diff_arr(stably_active_ind, stably_active_ind_)
+                fpath = os.path.join(os.path.dirname(args.resume), 'preprocesss-train_test.txt')
+                with open(fpath, 'w') as f:
+                    info = args.resume + f', {cc_train2}, {cc_test2}, {wrong_train2:.04f}'  + \
+                            f',, {cc_train1}, {cc_test1}, {wrong_train1:.04f}'
+                    print(info)
+                    f.write(info + '\n')
+
+
+                # write the index into the checkpoints' folder
+                np.save(os.path.join(os.path.dirname(args.resume), 'stable_neurons.train_test.npy'), {
+                            'stably_active.train': stably_active_ind.numpy(),
+                            'stably_inactive.train': stably_inactive_ind.numpy(),
+                            'stably_active.eval': stably_active_ind_.numpy(),
+                            'stably_inactive.eval': stably_inactive_ind_.numpy(),
+                            'stably_active.diff':   [ cc_train2, cc_test2, wrong_train2],
+                            'stably_inactive.diff': [ cc_train1, cc_test1, wrong_train1]
+                })
+            args.eval_train_data = True
+
+                
             # Write model weights in CPLEX Format
             #save_weights_in_cplex_format(model, os.path.dirname(args.resume), os.path.basename(args.resume), input_dim, acc, sep)
 
@@ -957,7 +1035,6 @@ def eval_active_state(val_loader, model, criterion, fcnn_flag):
         LBLK = 3 
         conv_cnt = 0
         conv_active_states = []
-
     linear_cnt = model.features.module.__len__() // LBLK
     linear_width = [model.features.module[i*LBLK].out_features for i in range(linear_cnt)]
     active_states = [torch.zeros(N, linear_width[i]) for i in range(linear_cnt)]
