@@ -86,7 +86,8 @@ ap.add_argument    ('-t', '--time_limit', type=float                  , help = '
 ap.add_argument    ('--dataset'        , dest='dataset', type=str         , default='MNIST'     , help='Dataset to be used (default: MNIST)')
 ap.add_argument    ('--limit_input', action = 'store_true', help='Limit the input for MNIST (default: False)')
 args = ap.parse_args()
-
+args.limit_input = True
+print("args.limit_input", args.limit_input)
 
 determine_stability_per_network = (args.formulation=='network')
 determine_stability_per_layer = (args.formulation=='layer')

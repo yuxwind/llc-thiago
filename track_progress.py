@@ -29,9 +29,12 @@ ACTIONS     = [TRAIN, AP, NP, PRE, OD, PRUNE]
 act_dict    = dict(zip(ACTIONS, range(len(ACTIONS))))
 
 model_dir   = './model_dir'
-rst_dir     = './results/'
+#rst_dir     = './results/'
+rst_dir     = './results-restrict_input/'
 cnt_rst     = 'counting_results/'
 stb_neuron  = 'stable_neurons/'
+#SCRIPT      = 'get_activation_patterns.py'
+SCRIPT      = 'nn_milp_per_network.py'
 
 # results of counting stable neurons with/w.o preprecessing
 NOPRE       = 'results-no_preprocess'
@@ -142,7 +145,7 @@ def start_OD(model_name):
     dataset = terms[1]
     folder = mkdir(os.path.join(model_dir, dataset, os.path.basename(model_name)))
 
-    cmd = "python get_activation_patterns.py -b --input " + folder + "/weights.dat" + " --formulation neuron --time_limit " + str(time_limit) + " --dataset " + dataset + " --preprocess_all_samples"
+    cmd = "python " + SCRIPT + " -b --input " + folder + "/weights.dat" + " --formulation neuron --time_limit " + str(time_limit) + " --dataset " + dataset + " --preprocess_all_samples"
     return cmd
 
 def start_AP(model_name):
@@ -152,7 +155,7 @@ def start_AP(model_name):
     dataset = terms[1]
     folder = mkdir(os.path.join(model_dir, dataset, os.path.basename(model_name)))
 
-    cmd = "python get_activation_patterns.py -b --input " + folder + "/weights.dat" + " --formulation network --time_limit " + str(time_limit) + " --dataset " + dataset + " --preprocess_all_samples"
+    cmd = "python " + SCRIPT + " -b --input " + folder + "/weights.dat" + " --formulation network --time_limit " + str(time_limit) + " --dataset " + dataset + " --preprocess_all_samples"
     return cmd
 
 def start_NP(model_name):
@@ -162,7 +165,7 @@ def start_NP(model_name):
     dataset = terms[1]
     folder = mkdir(os.path.join(model_dir, dataset, os.path.basename(model_name)))
 
-    cmd = "python get_activation_patterns.py -b --input " + folder + "/weights.dat" + " --formulation network --time_limit " + str(time_limit) + " --dataset " + dataset
+    cmd = "python " + SCRIPT + " -b --input " + folder + "/weights.dat" + " --formulation network --time_limit " + str(time_limit) + " --dataset " + dataset
     return cmd
 
 
@@ -255,7 +258,8 @@ for i,l in enumerate(track_list):
                     f'{OD}-{UNKNOWN}', f'{PRUNE}-{UNKNOWN}']
     prev_state = prev_tag[aid].split('-')[1]
 
-    if prev_state != f'{DONE}':
+    #if prev_state != f'{DONE}':
+    if True:  #always check the states 
         tr_done = check_training(exp)
         ap_done = check_AP(exp) 
         if aid == 0:

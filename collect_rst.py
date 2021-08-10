@@ -14,7 +14,8 @@ from cfg import type_arch,large_types
 ####################################################
 
 model_dir   = './model_dir'
-rst_dir     = './results/'
+#rst_dir     = './results/'
+rst_dir     = 'results-restrict_input/'
 cnt_rst     = 'counting_results/'
 stb_neuron  = 'stable_neurons/'
 
