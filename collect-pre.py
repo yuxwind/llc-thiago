@@ -4,8 +4,14 @@ import os
 path = sys.argv[1]
 
 f = open(path, 'r')
-flist = [l.strip().split(' ')[5] for l in f.readlines()]
-paths = [os.path.dirname(l) for l in flist]
+
+# for 
+#flist = [l.strip().split(' ')[5] for l in f.readlines()]
+#paths = [os.path.dirname(l) for l in flist]
+
+# for lenet-exp.list
+paths = [l.strip() for l in f.readlines()]
+
 paths = [os.path.join(l, 'preprocesss-train_test.txt') for l in paths]
 f.close()
 

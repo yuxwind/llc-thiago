@@ -8,6 +8,44 @@ import torch.nn.functional as F
 import torch.nn.init as init
 
 from .init_utils import weights_init 
+class LeNetMask(nn.Module):
+    def __init__(self, input_dim=32):
+        super(LeNetMask, self).__init__()
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1   = nn.Linear(16*5*5, 120)
+        self.fc2   = nn.Linear(120, 84)
+        self.fc3   = nn.Linear(84, 10)
+
+        for m in self.modules():
+            if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight.data)
+                m.bias.data.fill_(0.0)
+        #import pdb;pdb.set_trace()
+        #self.apply(weights_init)
+
+    def forward(self, x, masks):
+        mask1, mask2, mask3, mask4 = masks
+        mask1 = mask1 >= 0
+        mask2 = mask2 >= 0
+        mask3 = mask3 >= 0
+        mask4 = mask4 >= 0
+
+        out = F.relu(self.conv1(x))  * mask1.float().cuda()
+        out = F.max_pool2d(out, 2)
+        
+        out = F.relu(self.conv2(out)) * mask2.float().cuda()
+        out = F.max_pool2d(out, 2)
+        
+        out = out.view(out.size(0), -1)
+        
+        out = F.relu(self.fc1(out)) * mask3.float().cuda()
+        out = F.relu(self.fc2(out)) * mask4.float().cuda()
+        out = self.fc3(out)
+        
+       # import pdb;pdb.set_trace() 
+        a = out
+        return F.log_softmax(out, dim=1), a
 
 class LeNet(nn.Module):
     def __init__(self, input_dim=32):
@@ -117,4 +155,5 @@ if __name__ == '__main__':
     #sanity_test_conv()
     #sanity_test_maxpool2d()
     lenet = LeNet()
+    lenetp = LeNetMask()
     import pdb;pdb.set_trace()

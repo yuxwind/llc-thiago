@@ -227,7 +227,80 @@ def read_train_stb(model_path):
     ##timer.stop('loaded the checkpoint')
 
 #######################################################################################
-# update the weights and bias in the checkpoints
+# Sort all weights in descending order and prune the smallest ones 
+#######################################################################################
+def magnituded_based_pruning(weights, keep_ratio):
+    all_weights = torch.cat([torch.flatten(w).abs() for w in weights]) 
+    num_params_to_keep = int(len(all_scores) * keep_ratio)
+    threshold,out = torch.topk(all_scores, num_params_to_keep, sorted=True)
+    acceptable_score = threshold[-1]
+    for i, w in enumerate(weights):
+        w[w <= acceptable_score] == 0
+        weights[i] = w
+    return weights
+
+
+#######################################################################################
+# Apply magnituded based pruning 
+#   tag: the method to get sbable neurons, whoses results is under the folder
+#        'results/${dataset}/${tag}' 
+#        e.g:  results-no_preprocess, results-preprocess_all, 
+#              results-old-approach, results-preprocess_partial
+#######################################################################################
+def magnituded_based_prune_ckp(model_path, tag)
+    #1. load model after lossless pruning
+    pruned_ckp_path = os.path.join(model_path, 'pruned_checkpoint_120.tar')
+    if not os.path.exists(pruned_ckp_path):
+        prune_ckp(model_path,tag)
+    pruned_ckp = torch.load(pruned_ckp_path)
+    _, _, pruned_weights, _, _ = weights_bias_from_fcnn_ckp(pruned_ckp)
+
+    #2. load original model
+    ckp_path = os.path.join(model_path, 'checkpoint_120.tar')
+    if not os.path.exists(ckp_path):
+        print(ckp_path, 'not exists')
+        return
+    ckp = torch.load(ckp_path)
+    _, _, weights, _, _ = weights_bias_from_fcnn_ckp(pruned_ckp)
+    
+    #3. count the weights
+    weights_cnt = torch.tensor([w.size for w in weights]).sum()
+    keep_cnt = torch.tensor([w.size for w in pruned_weights]).sum()
+    keep_ratio = keep_cnt/weights_cnt
+     
+    #4. apply magnituded pruning
+    m_pruned_weights = magnituded_based_pruning(weights, keep_ratio)
+    for i, name in enumerate(w_names):
+        ckp['state_dict'][name] = torch.from_numpy(m_pruned_weights[i]).cuda(device=device)
+    # save the checkpoint 
+    m_pruned_ckp_path = os.path.join(model_path, 'magnitude_pruned_checkpoint_120.tar')
+    torch.save(ckp, pruned_ckp_path) 
+
+def weights_bias_from_fcnn_ckp(ckp):
+    w_names = sorted([name for name in ckp['state_dict'].keys() 
+                            if 'weight' in name and 'features' in name])
+    b_names = sorted([name for name in ckp['state_dict'].keys() 
+                            if 'bias' in name and 'features' in name])
+    w_names.append('classifier.0.weight')
+    b_names.append('classifier.0.bias')
+
+    device = ckp['state_dict'][w_names[0]].device
+
+    weights = []
+    bias    = []
+    for name in w_names:
+        weights.append(ckp['state_dict'][name].cpu().numpy())
+    for name in b_names:
+        bias.append(ckp['state_dict'][name].cpu().numpy())
+    return w_names, b_names, weights, bias, device
+
+#######################################################################################
+# Load the weights and bias from the checkpoints and the neuron stability from the state files,
+# Prune the model according to neuron stability
+#   tag: the method to get sbable neurons, whoses results is under the folder
+#        'results/${dataset}/${tag}' 
+#        e.g:  results-no_preprocess, results-preprocess_all, 
+#              results-old-approach, results-preprocess_partial
 #######################################################################################
 def prune_ckp(model_path,tag):
      
@@ -248,25 +321,12 @@ def prune_ckp(model_path,tag):
             print(stb_path, 'not exists')
             return
         ckp = torch.load(ckp_path)
-        weights = []
-        bias    = []
-        
-        w_names = sorted([name for name in ckp['state_dict'].keys() 
-                                if 'weight' in name and 'features' in name])
-        b_names = sorted([name for name in ckp['state_dict'].keys() 
-                                if 'bias' in name and 'features' in name])
-        w_names.append('classifier.0.weight')
-        b_names.append('classifier.0.bias')
-
-        device = ckp['state_dict'][w_names[0]].device
-
-        for name in w_names:
-            weights.append(ckp['state_dict'][name].cpu().numpy())
-        for name in b_names:
-            bias.append(ckp['state_dict'][name].cpu().numpy())
-
+        w_names, b_names, weights, bias, device = weights_bias_from_fcnn_ckp(ckp)
         act_neurons, inact_neurons = read_MILP_stb(model_path, tag) 
         ##timer.stop('loaded the checkpoint')
+   
+    # Get a new model by applying lossless pruning. 
+    #   Note this reduces the model size instead of masking pruned weights and biases as zeros
     pruned_numbers = ''
     for l in range(1, len(weights)):
         if len(act_neurons) > 0:
@@ -307,6 +367,7 @@ def prune_ckp(model_path,tag):
         bias[l]      = b2
         ##timer.stop(f'{l} layer is pruned')
         #import pdb;pdb.set_trace()
+    
     # update the ckeckpoints
     for i, name in enumerate(w_names):
         ckp['state_dict'][name] = torch.from_numpy(weights[i]).cuda(device=device)
@@ -314,6 +375,8 @@ def prune_ckp(model_path,tag):
         ckp['state_dict'][name] = torch.from_numpy(bias[i]).cuda(device=device)
     # save the checkpoint 
     torch.save(ckp, pruned_ckp_path)
+    
+    # append the lossless pruning results into the stat file
     if 'NO RESULT' in MILP_rst[0]:
         _,arch,_,_ = parse_exp_name(model_path)
         MILP_rst = [model_path + ', , ,' + ' , , ,,' * len(arch.split('-')) + ' ,, , ,, ,,'] 
@@ -327,4 +390,7 @@ if __name__ == '__main__':
     #model_path = 'model_dir/CIFAR100-rgb/dnn_CIFAR100-rgb_400-400_7.500000000000001e-05_0001'
     #model_path = 'model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_400-400_0.000175_0002'
     model_path = sys.argv[1]
-    prune_ckp(model_path, ALLPRE)
+    if len(sys.argv) > 2 and sys.argv[2] == 'magnitude':
+        magnituded_based_prune_ckp(model_path, tag)
+    else:
+        prune_ckp(model_path, ALLPRE)

@@ -11,7 +11,7 @@ import torch.nn.init as init
 #import custom_blocks
 import torch.nn.functional as F
 
-from train.lenet import LeNet 
+from train.lenet import LeNet, LeNetMask 
 
 #__all__ = [
 #    'FCNN', 'fcnn1', 'fcnn1_d', 'fcnn2', 'fcnn2_d', 'fcnn3', 'fcnn3_d', 'fcnn4', 'fcnn5'
@@ -123,7 +123,7 @@ cfg = {
 }
 
 __all__ = [
-    'lenet', 
+    'lenet', 'lenetPrune', 
     'fcnn_prune',
     'fcnn'  ,
     'fcnn1' , 'fcnn1_d' , 'fcnn1a', 'fcnn1a_d', 'fcnn1b', 'fcnn1b_d', 'fcnn1c_d', 'fcnn1d_d', 'fcnn1e_d', 'fcnn1f_d',
@@ -344,3 +344,6 @@ def fcnn6b_d(input_dim = 784, class_num = 10):
 
 def lenet(input_dim=32, class_num=10):
     return LeNet(input_dim)
+
+def lenetPrune(input_dim=32, class_num=10):
+    return LeNetMask(input_dim)

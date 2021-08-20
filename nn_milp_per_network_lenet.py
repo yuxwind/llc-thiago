@@ -64,6 +64,7 @@ import copy
 
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 from common.io import mkpath, mkdir
 from dir_lookup import *
@@ -404,6 +405,8 @@ class lenetSolver():
                     name = f'conv_{l}'))
                 self.solvers.append(reluSolver(l, name=f'relu_{l}'))
                 self.solvers.append(maxpool2dSolver(2, name=f'max_pool2d_{l}'))
+                if l == 2:
+                    self.solvers.append(flattenSolver(name=f'flatten_{l}'))
             else:
                 self.solvers.append(linearSolver(weights[l-1], bias[l-1], name=f'fc_{l}'))
                 self.solvers.append(reluSolver(l, name=f'relu_{l}'))
@@ -416,7 +419,7 @@ class lenetSolver():
                 self.solvers[i].get_output_bounds()
             else:
                 self.solvers[i].get_output_bounds(self.solvers[i-1].bounds)
-            import pdb;pdb.set_trace()
+        #    import pdb;pdb.set_trace()
 
     def add_constrs(self):
         for i in range(len(self.solvers)):
@@ -453,6 +456,24 @@ class mlpSolver():
             else:
                 self.solvers[i].add_constrs(self.solvers[i-1].h)
 
+class flattenSolver():
+    def __init__(self, name='flatten'):
+        self.name = name
+
+    def get_output_bounds(self, input_bounds):
+        # inputs_bounds:  cin x h_in x w_in x 2
+        self.cin, self.h_in, self.w_in, _ = input_bounds.shape
+        self.bounds = copy.copy(input_bounds)
+
+    def add_constrs(self, vars_in):
+        # flatten 3D into 1D
+        self.h = model.addVars(self.cin * self.h_in * self.w_in)
+        for i in range(self.cin):
+            for j in range(self.h_in):
+                for k in range(self.w_in):
+                    model.addConstr(vars_in[i,j,k] == \
+                            self.h[i * self.h_in * self.w_in + j * self.w_in + k])
+
 class conv2dSolver():
     def __init__(self, w,b, h_out, w_out, stride=1, name='conv2d'):
         self.w = w # cout x cin x kernel_size x kernel_size
@@ -465,7 +486,7 @@ class conv2dSolver():
 
     def get_output_bounds(self, input_bounds):
         # input_bounds: cin x h_in x w_in x 2
-        in_ = torch.tensor(input_bounds[:,:,:,0])[None,:,:,:]
+        in_ = torch.tensor(input_bounds[:,:,:,0])[None,:,:,:].float()
         w1  = torch.tensor(self.w)
         w1[w1<0] = 0
         self.conv2d.weight.data = w1 
@@ -475,7 +496,7 @@ class conv2dSolver():
 
         w2  = torch.tensor(self.w)
         w2[w2>0] = 0
-        self.conv2d.weight = w2 
+        self.conv2d.weight.data = w2 
         out2 = self.conv2d(in_) # 1 x cin x h_out x w_out
         self.bounds[:,:,:,1] = -out2.squeeze(dim=0).detach().numpy()
 
@@ -521,11 +542,12 @@ class linearSolver():
 
     def get_output_bounds(self, input_bounds):
         # input_bounds: cin x 2
-        in_ = torch.tensor(input_bounds[:,0])[None,:]
+        in_ = torch.tensor(input_bounds.reshape(-1,2)[:,0]).float()[None]
         w1 = torch.tensor(self.w)
         w1[w1<0.0] = 0.0
         self.fc.weight.data = w1
         self.fc.bias.data   = torch.tensor(self.b)
+        import pdb;pdb.set_trace()
         out1 = self.fc(in_)
         self.bounds[:,0] = out1.squeeze(dim=0).detach().numpy()
 
@@ -557,6 +579,7 @@ class linearSolver():
         
     def add_constrs(self, vars_in):
         self.h = model.addVars(self.cout, lb = -GRB.INFINITY, name = self.name)
+        import pdb;pdb.set_trace()
         for i in range(self.cout):
             model.addConstr(
                     quicksum(
@@ -567,21 +590,22 @@ class linearSolver():
 class maxpool2dSolver():
     def __init__(self, kernel_size, stride=None, name='maxpool2d'):
         self.ck = kernel_size
-        self.cs = self.ck if stride is None else stride
+        self.stride = self.ck if stride is None else stride
         self.name = name
 
     def get_output_bounds(self, input_bounds):
         # inputs_bounds:  cin x h_in x w_in x 2
-        self.inputs_bounds = input_bounds
-        self.cin, self.h_in, self.w_in, _ = input_bound.shape
+        self.input_bounds = input_bounds
+        self.cin, self.h_in, self.w_in, _ = input_bounds.shape
         self.cout = self.cin
-        self.h_out = math.floor((self.h_in - self.ck)/self.stride) + 1
-        self.w_out = math.floor((self.h_out - self.ck)/self.stride) + 1
-        self.bounds = np.zeros([self.cout, self.h_out, self.w_out, 2])
-        in_ = torch.tensor(self.nput_bounds[:,:,:0])[None,:,:,:]
-        out_ = F.max_pool2d(in_, self.ck, stride=self.cs)
         
-        self.bounds[:,:,:,0] = out_.sqeeze().numpy()
+        self.h_out = math.floor((self.h_in - self.ck)/self.stride) + 1
+        self.w_out = math.floor((self.w_in - self.ck)/self.stride) + 1
+        self.bounds = np.zeros([self.cout, self.h_out, self.w_out, 2])
+        
+        in_ = torch.tensor(self.input_bounds[:,:,:,0])[None,:,:,:]
+        out_ = F.max_pool2d(in_, self.ck, stride=self.stride)
+        self.bounds[:,:,:,0] = out_.squeeze().numpy()
       
     ##########################################verified!
     # vars_in: cin  x hin  x win
@@ -602,9 +626,9 @@ class maxpool2dSolver():
          
         for i in range(self.cout):
             for j in range(self.h_out):
-                h_in_ = j * self.cs
+                h_in_ = j * self.stride
                 for k in range(self.w_out):
-                    w_in_ = k * self.cs
+                    w_in_ = k * self.stride
                     for k1 in range(self.ck):
                         for k2 in range(self.ck):
                             hh = h_in_ + k1

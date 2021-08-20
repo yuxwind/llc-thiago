@@ -20,12 +20,13 @@ NP          = 'NP'      # couting stable without preprocessing
 PRE         = 'PRE'     # counting stable from training samples
 OD          = 'OD'      # old approach to count stable 
 PRUNE       = 'PRUNE'   # prune the network with the neuron stability 
+PRUNEM       = 'PRUNEM'   # prune the network with the magnitude based pruning 
 
 RUN         = 'R'       # it is running
 DONE        = 'D'       # it is done
 UNDONE      = 'U'       # it is not finished
 UNKNOWN     = 'X'       # it is unknown
-ACTIONS     = [TRAIN, AP, NP, PRE, OD, PRUNE]
+ACTIONS     = [TRAIN, AP, NP, PRE, OD, PRUNE, PRUNEM]
 act_dict    = dict(zip(ACTIONS, range(len(ACTIONS))))
 
 model_dir   = './model_dir'
@@ -138,6 +139,16 @@ def start_PRUNE(model_name):
     cmd = "python prune_network.py " + model_name
     return cmd
 
+def check_PRUNEM(model_name):
+    if os.path.exists(os.path.join(model_name, 'magnituded_pruned_checkpoint_120.tar')):
+        return True
+    else:
+        return False
+
+def start_PRUNEM(model_name):
+    cmd = "python prune_network.py " + model_name + "  magnitude "
+    return cmd
+
 def start_OD(model_name):
     time_limit = 10800
     
@@ -240,23 +251,23 @@ for i,l in enumerate(track_list):
     arrs = l.strip().split('#')
     exp = arrs[-1]
     arch = os.path.basename(exp).split('_')[2]
-    if len(arrs) == 2:
-        prev_tag = arrs[0].split(',')
-        # get states for each actions
-        states = {}
-        for tag in prev_tag:
-            t,s = tag.split('-')
-            states[t] = s
-        # set the state of missed action as UNKNOWN 
-        for t in ACTIONS:
-            if t not in states:
-                states[t] = UNKNOWN
-        # update prev_tag 
-        prev_tag = ['-'.join([t, states[t]]) for t in ACTIONS]
-    else:
-        prev_tag = [f'{TRAIN}-{UNKNOWN}', f'{AP}-{UNKNOWN}', f'{NP}-{UNKNOWN}', f'{PRE}-{UNKNOWN}', 
-                    f'{OD}-{UNKNOWN}', f'{PRUNE}-{UNKNOWN}']
-    prev_state = prev_tag[aid].split('-')[1]
+    #if len(arrs) == 2:
+    #    prev_tag = arrs[0].split(',')
+    #    # get states for each actions
+    #    states = {}
+    #    for tag in prev_tag:
+    #        t,s = tag.split('-')
+    #        states[t] = s
+    #    # set the state of missed action as UNKNOWN 
+    #    for t in ACTIONS:
+    #        if t not in states:
+    #            states[t] = UNKNOWN
+    #    # update prev_tag 
+    #    prev_tag = ['-'.join([t, states[t]]) for t in ACTIONS]
+    #else:
+    #    prev_tag = [f'{TRAIN}-{UNKNOWN}', f'{AP}-{UNKNOWN}', f'{NP}-{UNKNOWN}', f'{PRE}-{UNKNOWN}', 
+    #                f'{OD}-{UNKNOWN}', f'{PRUNE}-{UNKNOWN}']
+    #prev_state = prev_tag[aid].split('-')[1]
 
     #if prev_state != f'{DONE}':
     if True:  #always check the states 
@@ -275,19 +286,21 @@ for i,l in enumerate(track_list):
             done = check_OD(exp)
         elif aid == 5:
             done = check_PRUNE(exp)
+        elif aid == 6:
+            done = check_PRUNEM(exp)
 
-        done=False
+        #done=False
         if done is None:
-            cur_state = 'X'
+            #cur_state = 'X'
             unknown.append(exp)
             #todo.append(exp)
         elif done:
             cur_state = 'D'
         else:
-            if start_job:
-                cur_state = 'R'
-            else:
-                cur_state = 'U'
+            #if start_job:
+            #    cur_state = 'R'
+            #else:
+            #    cur_state = 'U'
             # TRAIN should be done before starting other actions
             if aid == 0:
                 todo.append(exp)
@@ -300,15 +313,15 @@ for i,l in enumerate(track_list):
                 #if tr_done and arch in large_types:
                 if tr_done:
                     todo.append(exp)
-        prev_tag[aid] = f"{ACTIONS[aid]}-{cur_state}"
+        #prev_tag[aid] = f"{ACTIONS[aid]}-{cur_state}"
 
-        cur_exp = ','.join(prev_tag) + '#' + exp.strip()
-        track_list[i] = cur_exp
-        #print(cur_exp)
+        #cur_exp = ','.join(prev_tag) + '#' + exp.strip()
+        #track_list[i] = cur_exp
+        ##print(cur_exp)
         
-with open(p_track, 'w') as f:
-    for l in track_list:
-        f.write(l+'\n')
+#with open(p_track, 'w') as f:
+#    for l in track_list:
+#        f.write(l+'\n')
 
 print('todo: ', len(todo))
 print('unknown: ', len(unknown))
@@ -325,6 +338,8 @@ for l in todo:
         f_todo.write(start_OD(l) + '\n')
     elif aid == 5:
         f_todo.write(start_PRUNE(l) + '\n')
+    elif aid == 6:
+        f_todo.write(start_PRUNEM(l) + '\n')
     for ll in collect_rst(l, ACTIONS[aid]):
         f_todo_rst.write(ll + '\n')
 

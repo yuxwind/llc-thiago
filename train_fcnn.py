@@ -11,6 +11,13 @@
 
     Master script to evaluate the performance of fixing augmentation, activation pattern, adversarial training and other things.
 
+    Version 6 Xin Yu        2021-05~08     
+        1. Support MNIST, Cifar10-gray, Cifar10-rgb, Cifar100. Code for datasets is moved to dataset.py
+        2. Support training/evaluating LeNet
+        3. Support evaluation on pruned FCNN
+        4. Support evaluation on pruned LeNet
+        5. Get stable neurons of FCNN from training/test dataset
+        6. Get stable neurons of Lenet from training/test dataset
     Version 5 Abhinav Kumar 2018-03-25 Code cleaned, augmentation removed in MNIST
     Version 4 Abhinav Kumar 2018-03-15 L1 regularisation added
     Version 3 Abhinav Kumar 2018-03-15 Buggy optimizer fixed
@@ -145,7 +152,9 @@ def main():
         model = fcnn.__dict__[args.arch](cfg, input_dim, class_num)
     else:
         model = fcnn.__dict__[args.arch](input_dim, class_num)
-
+        
+    if not fcnn_flag: # for lenet
+        lenet_prune = fcnn.__dict__['lenetPrune'](input_dim, class_num)
     #model.features = torch.nn.DataParallel(model.features)
     
 
@@ -172,6 +181,24 @@ def main():
         print("\nCriterion :")
         print(criterion)
         print("\n===============================================================================");
+    
+    def map_lenet_2_lenetmask(m1, m2):
+        m1.conv1.weight.data = m2.conv_features.module[0].weight.data
+        m1.conv1.bias.data = m2.conv_features.module[0].bias.data
+        
+        m1.conv2.weight.data = m2.conv_features.module[3].weight.data
+        m1.conv2.bias.data = m2.conv_features.module[3].bias.data
+
+        m1.fc1.weight.data = m2.features.module[0].weight.data
+        m1.fc1.bias.data = m2.features.module[0].bias.data
+
+        m1.fc2.weight.data = m2.features.module[2].weight.data
+        m1.fc2.bias.data = m2.features.module[2].bias.data
+
+        m1.fc3.weight.data = m2.classifier[0].weight.data
+        m1.fc3.bias.data = m2.classifier[0].bias.data
+
+        return m1, m2
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -181,6 +208,10 @@ def main():
             args.start_epoch = checkpoint['epoch']
             best_prec1 = checkpoint['best_prec1']
             model.load_state_dict(checkpoint['state_dict'])
+            
+            if not fcnn_flag:
+                map_lenet_2_lenetmask(lenet_prune, model)
+
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(args.evaluate, checkpoint['epoch']))
         else:
@@ -188,6 +219,8 @@ def main():
 
     # Transfer model and criterion to default device
     model = model.to(device)
+    if not fcnn_flag:
+        lenet_prune = lenet_prune.to(device)
     criterion = criterion.to(device)
 
     stddev = args.std_dev
@@ -197,19 +230,11 @@ def main():
     if(dataset == "CIFAR10"):
         print("Running on CIFAR10")
         input_dim  = 1024
-        #normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        normalize  = transforms.Normalize(mean=[0], std=[1])
-        transform_list = [transforms.Grayscale(num_output_channels=1), transforms.ToTensor(), normalize]
-
     elif (dataset == "MNIST"):
         print("Running on MNIST")
         input_dim = 784
-        normalize = transforms.Normalize(mean=[0], std=[1]) #Images are already loaded in [0,1]
-        transform_list = [transforms.ToTensor(), normalize]
-
     else:
         print("Unknown Dataset")
-
 
     if(args.fix_activations):
         print("Beta = " + str(args.beta))
@@ -227,34 +252,7 @@ def main():
             epsilons   = [0, .05, .1, .15, .2, .25, .3]
             accuracies = []
             examples   = []
-
-            transform_list=[transforms.ToTensor(), normalize]
-            if(dataset == "CIFAR10-gray"):
-                transform_list.append(transforms.Grayscale(num_output_channels=1))
-                val_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
-                batch_size=1, shuffle=False,
-                num_workers=args.workers, pin_memory=True)
-            elif(dataset == "CIFAR10-rgb"):
-                val_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
-                batch_size=1, shuffle=False,
-                num_workers=args.workers, pin_memory=True)
-            elif(dataset == "CIFAR100-rgb"):
-                # Transform list for validation
-                transform_list=[transforms.ToTensor(), normalize]
-                val_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR100(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
-                batch_size=args.test_batch_size, shuffle=False,
-                num_workers=args.workers, pin_memory=True)
-            elif (dataset == "MNIST"):
-                val_loader = torch.utils.data.DataLoader(
-                datasets.MNIST(root='../data', train=False, transform=transforms.Compose(transform_list), download=True),
-                batch_size=1, shuffle=False,
-                num_workers=args.workers, pin_memory=True)
-
-            else:
-                print("Unknown Dataset")
+            val_loader = get_data(dataset, args.test_batch_size, args.workers, train=False, shuffle=False)
 
             # Run test for each epsilon
             for eps in epsilons:
@@ -263,48 +261,18 @@ def main():
                 examples.append(ex)
             return
         else:
-            if args.augmentation:
-                print("Using augmentation. Std deviation of the noise while testing/evaluation = " + str(stddev))
-                transform_list.append(transforms.Lambda(lambda img: img + distbn.sample(img.shape)))
-            else:
-                print("No augmentation used in testing")
-
-            transform_list=[transforms.ToTensor(), normalize]
-            if(dataset == "CIFAR10-gray"):
-                transform_list.append(transforms.Grayscale(num_output_channels=1))
-                val_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10(root='./data', train=args.eval_train_data,
-                                    transform=transforms.Compose(transform_list), download=True),
-                batch_size=args.test_batch_size, shuffle=False,
-                num_workers=args.workers, pin_memory=True)
-
-                #features, acc = get_features(val_loader, model, criterion)
-            elif(dataset == "CIFAR10-rgb"):
-                val_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
-                batch_size=1, shuffle=False,
-                num_workers=args.workers, pin_memory=True)
-            elif(dataset == "CIFAR100-rgb"):
-                # Transform list for validation
-                val_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR100(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
-                batch_size=args.test_batch_size, shuffle=False,
-                num_workers=args.workers, pin_memory=True)
-            elif (dataset == "MNIST"):
-                val_loader = torch.utils.data.DataLoader(
-                datasets.MNIST(root='./data', train=args.eval_train_data, 
-                                    transform=transforms.Compose(transform_list), download=True),
-                batch_size=args.test_batch_size, shuffle=False,
-                num_workers=args.workers, pin_memory=True)
-            else:
-                print("Unknown Dataset")
+            # Consider using augmentation: Std deviation of the noise while testing/evaluation = stddev
+            args.eval_train_data = True 
+            val_loader = get_data(dataset, args.test_batch_size, args.workers, 
+                                    train=args.eval_train_data, shuffle=False, 
+                                    has_augmentation = args.augmentation)
             print('datasize:', len(val_loader.dataset))
             if not args.eval_stable: 
                 acc = validate(val_loader, model, criterion, 1, device, fcnn_flag)
                 print('acc:', acc)
             else:
                 print('load checkpoints: ', args.resume)
-                active_states, acc = eval_active_state(val_loader, model, criterion, fcnn_flag)
+                active_states, acc, masks = eval_active_state(val_loader, model, criterion, fcnn_flag)
                 # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
                 stably_active_ind, stably_inactive_ind = find_stable_neurons(active_states)
                 # write the index into the checkpoints' folder
@@ -314,45 +282,23 @@ def main():
                 })
             # on eval dataset
             args.eval_train_data = False
-            transform_list=[transforms.ToTensor(), normalize]
-            if(dataset == "CIFAR10-gray"):
-                transform_list.append(transforms.Grayscale(num_output_channels=1))
-                val_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10(root='./data', train=args.eval_train_data,
-                                    transform=transforms.Compose(transform_list), download=True),
-                batch_size=args.test_batch_size, shuffle=False,
-                num_workers=args.workers, pin_memory=True)
-
-                #features, acc = get_features(val_loader, model, criterion)
-            elif(dataset == "CIFAR10-rgb"):
-                val_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
-                batch_size=1, shuffle=False,
-                num_workers=args.workers, pin_memory=True)
-            elif(dataset == "CIFAR100-rgb"):
-                # Transform list for validation
-                val_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR100(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
-                batch_size=args.test_batch_size, shuffle=False,
-                num_workers=args.workers, pin_memory=True)
-            elif (dataset == "MNIST"):
-                val_loader = torch.utils.data.DataLoader(
-                datasets.MNIST(root='./data', train=args.eval_train_data, 
-                                    transform=transforms.Compose(transform_list), download=True),
-                batch_size=args.test_batch_size, shuffle=False,
-                num_workers=args.workers, pin_memory=True)
-            else:
-                print("Unknown Dataset")
+            val_loader = get_data(dataset, args.test_batch_size, args.workers, 
+                                    train=args.eval_train_data, shuffle=False, 
+                                    has_augmentation = args.augmentation)
             print('datasize:', len(val_loader.dataset))
             if not args.eval_stable: 
                 acc = validate(val_loader, model, criterion, 1, device, fcnn_flag)
                 print('acc:', acc)
             else:
                 print('load checkpoints: ', args.resume)
-                active_states_, acc = eval_active_state(val_loader, model, criterion, fcnn_flag)
+                active_states_, acc_, masks_ = eval_active_state(val_loader, model, criterion, fcnn_flag)
                 # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
+                if not fcnn_flag:
+                    print('+++++++++++++++++++++++')
+                    acc_no = validate(val_loader, model, criterion, 1, device, fcnn_flag)
+                    acc_mask = validate(val_loader, lenet_prune, criterion, 1, device, 
+                            fcnn_flag, masks)
                 stably_active_ind_, stably_inactive_ind_ = find_stable_neurons(active_states_)
-                import pdb;pdb.set_trace()
 
                 def diff_arr(arr1, arr2): # for train, test, Nx2x1 
                     s1=[]
@@ -363,7 +309,10 @@ def main():
                         s2.append(f'{arr2[i,0,0]}-{arr2[i,1,0]}')
                     s1 = set(s1)
                     s2 = set(s2)
-                    wrong_train = len(s1-s2)/len(s1)
+                    if len(s1) == 0:
+                        wrong_train = 0.0
+                    else:
+                        wrong_train = len(s1-s2)/len(s1)
                     return wrong_train, len(s1), len(s2)
                     
 
@@ -373,7 +322,8 @@ def main():
                 fpath = os.path.join(os.path.dirname(args.resume), 'preprocesss-train_test.txt')
                 with open(fpath, 'w') as f:
                     info = args.resume + f', {cc_train2}, {cc_test2}, {wrong_train2:.04f}'  + \
-                            f',, {cc_train1}, {cc_test1}, {wrong_train1:.04f}'
+                            f',, {cc_train1}, {cc_test1}, {wrong_train1:.04f}' + \
+                            f',, {acc_no:.04f}, {acc_mask:.04f}, {acc_mask-acc_no:.04f}' 
                     print(info)
                     f.write(info + '\n')
 
@@ -411,53 +361,9 @@ def main():
     else:
         #For training mode
 
-
-        if(dataset == "CIFAR10-gray"):
-            # Transform list for validation
-            transform_list=[transforms.Grayscale(num_output_channels=1), transforms.ToTensor(), normalize]
-            val_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
-            batch_size=args.test_batch_size, shuffle=False,
-            num_workers=args.workers, pin_memory=True)
-
-            # Transform list for training
-            transform_list=[transforms.Grayscale(num_output_channels=1), transforms.ToTensor(), normalize]
-
-        if(dataset == "CIFAR10-rgb"):
-            # Transform list for validation
-            transform_list=[transforms.ToTensor(), normalize]
-            val_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
-            batch_size=args.test_batch_size, shuffle=False,
-            num_workers=args.workers, pin_memory=True)
-
-            # Transform list for training
-            transform_list=[transforms.ToTensor(), normalize]
-        if(dataset == "CIFAR100-rgb"):
-            # Transform list for validation
-            transform_list=[transforms.ToTensor(), normalize]
-            val_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR100(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
-            batch_size=args.test_batch_size, shuffle=False,
-            num_workers=args.workers, pin_memory=True)
-
-            # Transform list for training
-            transform_list=[transforms.ToTensor(), normalize]
-        elif (dataset == "MNIST"):
-            # Transform list for validation
-            transform_list=[transforms.ToTensor(), normalize]
-
-            val_loader = torch.utils.data.DataLoader(
-            datasets.MNIST(root='./data', train=False, transform=transforms.Compose(transform_list), download=True),
-            batch_size=args.test_batch_size, shuffle=False,
-            num_workers=args.workers, pin_memory=True)
-
-            # Transform list for training
-            transform_list=[transforms.ToTensor(), normalize]
-
-        else:
-            print("Unknown Dataset")
-
+        val_loader = get_data(dataset, args.test_batch_size, args.workers, 
+                                    train=args.eval_train_data, shuffle=False, 
+                                    has_augmentation = False)
 
 
         if args.augmentation:
@@ -482,40 +388,8 @@ def main():
         print("lr decay gamma     = %.2f" %(lr_decay_gamma))
 
         print("\n\n")
-        transform_train=[
-                    transforms.RandomHorizontalFlip(), # FLips the image w.r.t horizontal axis
-                    transforms.RandomRotation(10),     #Rotates the image to a specified angel
-                    transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)), #Performs actions like zooms, change shear angles.
-                    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Set the color params
-                    ]
-        if (dataset == "CIFAR10-gray"):
-            transform_train.extend([transforms.Grayscale(num_output_channels=1), transforms.ToTensor(), normalize])
-            train_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10(root='./data', train=True, 
-                    transform=transforms.Compose(transform_train), download=True),
-                batch_size=args.batch_size, shuffle=True,
-                num_workers=args.workers, pin_memory=True)
-        elif (dataset == "MNIST"):
-            train_loader = torch.utils.data.DataLoader(
-                datasets.MNIST(root='./data', train=True, transform=transforms.Compose(transform_list), download=True),
-                batch_size=args.batch_size, shuffle=True,
-                num_workers=args.workers, pin_memory=True)
-        elif (dataset == 'CIFAR10-rgb'):
-            transform_train.extend([transforms.ToTensor(), normalize])
-            train_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR10(root='./data', train=True, 
-                    transform=transforms.Compose(transform_train), download=True),
-                batch_size=args.batch_size, shuffle=True,
-                num_workers=args.workers, pin_memory=True)
-        elif (dataset == 'CIFAR100-rgb'): 
-            transform_train.extend([transforms.ToTensor(), normalize])
-            train_loader = torch.utils.data.DataLoader(
-                datasets.CIFAR100(root='./data', train=True, 
-                    transform=transforms.Compose(transform_train), download=True),
-                batch_size=args.batch_size, shuffle=True,
-                num_workers=args.workers, pin_memory=True)
-        else:
-            print("Unknown Dataset")
+       
+        train_loader = get_data(dataset, args.batch_size, args.worker, train=True, shuffle=True)
         #import pdb;pdb.set_trace()
         # Optimizer
         optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum,  weight_decay=args.wd)
@@ -531,20 +405,11 @@ def main():
         for epoch in tqdm(range(args.start_epoch, args.epochs)):
             
             #TODO: adjust for the CIFAR10-rgb, cifar100-rgb 
-            scheduler.step()
             #adjust_learning_rate(optimizer, epoch)
-            ## adjust the learning rate
-            #if (dataset == "CIFAR10"):
-            #    #scheduler.step()
-            #    adjust_learning_rate(optimizer, epoch)
-            #elif (dataset == "MNIST"):
-            #    scheduler.step()
-            #else:
-            #    print("Unknown Dataset")
+            scheduler.step()
 
             # train for one epoch
             train(train_loader, model, criterion, optimizer, epoch,  device, fcnn_flag, args)
-            #import pdb;pdb.set_trace()
             # evaluate on validation set
             if (epoch % eval_frequency == 0):
                 prec1 = validate(val_loader, model, criterion, epoch, device, fcnn_flag)
@@ -556,7 +421,7 @@ def main():
             if (epoch % save_frequency == 0):
                 if args.eval_stable:
                     print('===========eval_stable============')
-                    active_states, acc = eval_active_state(train_loader, model, criterion, fcnn_flag)
+                    active_states, acc, masks = eval_active_state(train_loader, model, criterion, fcnn_flag)
                     # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
                     stably_active_ind, stably_inactive_ind = find_stable_neurons(active_states)
                     # write the index into the checkpoints' folder
@@ -729,7 +594,7 @@ def train(train_loader, model, criterion, optimizer, epoch,  device, fcnn_flag, 
 ################################################################################
 # Run evaluation or validation
 ################################################################################
-def validate(val_loader, model, criterion, epoch, device, fcnn_flag):
+def validate(val_loader, model, criterion, epoch, device, fcnn_flag, masks=None):
 
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -751,7 +616,10 @@ def validate(val_loader, model, criterion, epoch, device, fcnn_flag):
             data = data.view(data.shape[0],-1)
 
         # compute output
-        output,_ = model(data)
+        if masks is not None:
+            output,_ = model(data, masks)
+        else:
+            output,_ = model(data)
         loss = criterion(output, target)
 
         output = output.float()
@@ -1014,6 +882,13 @@ def get_features(val_loader, model, criterion):
 
     return activations, top1.avg
 
+##########################################################################
+# get a binary mask for stably inactive 
+##########################################################################
+def get_mask(out_before_relu):
+    mask = (out_before_relu > 0).sum(dim=0) > 0
+    return mask
+
 ################################################################################
 # Logs features in the files
 ################################################################################
@@ -1112,7 +987,11 @@ def eval_active_state(val_loader, model, criterion, fcnn_flag):
     all_states.extend([s.reshape(s.shape[0],-1) for s in conv_active_states]) # flatten the states
     all_states.extend(active_states)
 
-    return all_states, top1.avg
+    masks = []
+    masks.extend([get_mask(s) for s in conv_active_states])
+    masks.extend([get_mask(s) for s in active_states])
+    return all_states, top1.avg, masks
+
 
 
 ################################################################################
