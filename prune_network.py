@@ -230,13 +230,13 @@ def read_train_stb(model_path):
 # Sort all weights in descending order and prune the smallest ones 
 #######################################################################################
 def magnituded_based_pruning(weights, keep_ratio):
-    all_weights = torch.cat([torch.flatten(w).abs() for w in weights]) 
+    all_scores = torch.cat([torch.flatten(torch.tensor(w)).abs() for w in weights]) 
     num_params_to_keep = int(len(all_scores) * keep_ratio)
     threshold,out = torch.topk(all_scores, num_params_to_keep, sorted=True)
-    acceptable_score = threshold[-1]
+    acceptable_score = threshold[-1].numpy()
     for i, w in enumerate(weights):
-        w[w <= acceptable_score] == 0
-        weights[i] = w
+        w[w <= acceptable_score] = 0
+        #weights[i] = w # updating w happens inplace
     return weights
 
 
@@ -247,7 +247,7 @@ def magnituded_based_pruning(weights, keep_ratio):
 #        e.g:  results-no_preprocess, results-preprocess_all, 
 #              results-old-approach, results-preprocess_partial
 #######################################################################################
-def magnituded_based_prune_ckp(model_path, tag)
+def magnituded_based_prune_ckp(model_path, tag):
     #1. load model after lossless pruning
     pruned_ckp_path = os.path.join(model_path, 'pruned_checkpoint_120.tar')
     if not os.path.exists(pruned_ckp_path):
@@ -261,7 +261,7 @@ def magnituded_based_prune_ckp(model_path, tag)
         print(ckp_path, 'not exists')
         return
     ckp = torch.load(ckp_path)
-    _, _, weights, _, _ = weights_bias_from_fcnn_ckp(pruned_ckp)
+    w_names, _, weights, _, device = weights_bias_from_fcnn_ckp(pruned_ckp)
     
     #3. count the weights
     weights_cnt = torch.tensor([w.size for w in weights]).sum()
@@ -391,6 +391,6 @@ if __name__ == '__main__':
     #model_path = 'model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_400-400_0.000175_0002'
     model_path = sys.argv[1]
     if len(sys.argv) > 2 and sys.argv[2] == 'magnitude':
-        magnituded_based_prune_ckp(model_path, tag)
+        magnituded_based_prune_ckp(model_path, ALLPRE)
     else:
         prune_ckp(model_path, ALLPRE)

@@ -181,8 +181,8 @@ def start_NP(model_name):
 
 
 dataset = sys.argv[1] # this can be 'mnist', 'cifar10-gray', 'cifar10-rgb', 'cifar100-rgb' 
-action = sys.argv[2] # this can be 'tr', 'ap', 'np'
-start_job   = int(sys.argv[3])   # this can be 1 or 0 to indicate whether to start running   
+action = sys.argv[2] # this can be 'tr', 'ap', 'np', 'prune', 'prune_magnitude'
+#start_job   = int(sys.argv[3])   # this can be 1 or 0 to indicate whether to start running   
 
 if dataset == 'mnist':
     track_list = mnist_track_list
@@ -211,6 +211,8 @@ elif action == 'old':
     aid = 4
 elif action == 'prune':
     aid = 5
+elif action == 'prune_magnitude':
+    aid = 6
 else:
     print('Unknown action')
 
@@ -322,8 +324,9 @@ for i,l in enumerate(track_list):
 #with open(p_track, 'w') as f:
 #    for l in track_list:
 #        f.write(l+'\n')
-
+print(path_todo)
 print('todo: ', len(todo))
+print(path_unknown)
 print('unknown: ', len(unknown))
 for l in todo:
     if aid == 0:
