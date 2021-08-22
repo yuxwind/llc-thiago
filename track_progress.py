@@ -40,6 +40,7 @@ act_dict    = dict(zip(ACTIONS, range(len(ACTIONS))))
 #rst_dir     = './results-restrict_input/'
 #cnt_rst     = 'counting_results/'
 #stb_neuron  = 'stable_neurons/'
+import pdb;pdb.set_trace()
 
 #SCRIPT      = 'get_activation_patterns.py'
 SCRIPT      = 'nn_milp_per_network.py'
@@ -371,11 +372,12 @@ for i,l in enumerate(track_list):
             # TRAIN should be done before starting other actions
             if aid == 0:
                 todo.append(exp)
-            if aid == 5:
+            elif aid == 5:
                 if ap_done:
                     todo.append(exp)
             else:
                 if not tr_done:
+                    import pdb;pdb.set_trace()
                     print(exp)
                 #if tr_done and arch in large_types:
                 if tr_done:
@@ -390,6 +392,7 @@ for i,l in enumerate(track_list):
 #    for l in track_list:
 #        f.write(l+'\n')
 import pdb;pdb.set_trace()
+print('model_dir: ', model_dir)
 print(path_todo)
 print('todo: ', len(todo))
 print(path_unknown)

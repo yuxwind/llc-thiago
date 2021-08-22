@@ -119,8 +119,8 @@ def main():
     device = torch.device("cuda" if use_cuda else "cpu")
     fcnn_flag       = True
     sep             = "," #This is used for separating in weights.dat file
-    save_frequency  = 2
-    eval_frequency  = 2
+    save_frequency  = 120
+    eval_frequency  = 30
     #save_frequency  = 1 # DEBUG
 
 
@@ -351,6 +351,7 @@ def main():
                         stably_inactive_ind_)
                 wrong_train2, cc_train2, cc_test2 = diff_arr(stably_active_ind, stably_active_ind_)
                 fpath = os.path.join(os.path.dirname(args.resume), 'preprocesss-train_test.txt')
+                print(fpath)
                 with open(fpath, 'w') as f:
                     info = args.resume + f', {cc_train2}, {cc_test2}, {wrong_train2:.04f}'  + \
                             f',, {cc_train1}, {cc_test1}, {wrong_train1:.04f}' + \
