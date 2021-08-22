@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+from collections import namedtuple
 
 from common.io import mkpath, mkdir
 
@@ -8,11 +9,21 @@ NOPRE       = 'results-no_preprocess'
 ALLPRE      = 'results-preprocess_all'
 PARTPRE     = 'results-preprocess_partial'
 OLD         = 'results-old-approach'
-#stb_root    = './results/'
-stb_root    = './results-restrict_input/'
 cnt_rst     = 'counting_results/'
 stb_neuron  = 'stable_neurons/'
-model_root  = './model_dir/'
+imbalance_cfg = None 
+### For the basic exp
+#stb_root    = './results/'
+#model_root  = './model_dir/'
+### For the exp on LLC with restrict input
+#stb_root    = './results-restrict_input/'
+#model_root  = './model_dir/'
+### For the exp training on imbalance data: keep 50% images of cats
+ImbalanceCfg = namedtuple('Imbalance', ['clsid', 'keep_ratio'])
+imbalance_cfg = ImbalanceCfg(3, 0.25) # 1/4, 1/16, 1/64, 1/256
+stb_root    = f'./results-imbalanced_cls{imbalance_cfg.clsid}_{imbalance_cfg.keep_ratio:.4f}/' 
+model_root  = f'./model_dir-imbalanced_cls3_0.50/'
+
 def get_stb_dir(dataset, tag):
     stb_dir = mkdir(os.path.join(stb_root, dataset, tag, cnt_rst))
     return stb_dir

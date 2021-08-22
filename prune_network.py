@@ -235,7 +235,7 @@ def magnituded_based_pruning(weights, keep_ratio):
     threshold,out = torch.topk(all_scores, num_params_to_keep, sorted=True)
     acceptable_score = threshold[-1].numpy()
     for i, w in enumerate(weights):
-        w[w <= acceptable_score] = 0
+        w[np.absolute(w) <= acceptable_score] = 0
         #weights[i] = w # updating w happens inplace
     return weights
 
@@ -261,20 +261,31 @@ def magnituded_based_prune_ckp(model_path, tag):
         print(ckp_path, 'not exists')
         return
     ckp = torch.load(ckp_path)
-    w_names, _, weights, _, device = weights_bias_from_fcnn_ckp(pruned_ckp)
+    w_names, _, weights, _, device = weights_bias_from_fcnn_ckp(ckp)
     
     #3. count the weights
     weights_cnt = torch.tensor([w.size for w in weights]).sum()
     keep_cnt = torch.tensor([w.size for w in pruned_weights]).sum()
-    keep_ratio = keep_cnt/weights_cnt
-     
+    keep_ratio = keep_cnt/weights_cnt.float()
+    #keep_ratio = 0.05
     #4. apply magnituded pruning
     m_pruned_weights = magnituded_based_pruning(weights, keep_ratio)
     for i, name in enumerate(w_names):
         ckp['state_dict'][name] = torch.from_numpy(m_pruned_weights[i]).cuda(device=device)
+    ckp['prune_ratio_weight'] = 1 - keep_ratio
+    neurons_cnt = torch.tensor([w.shape[0]  for w in weights[:-1]]).sum().numpy()
+    keep_neuron_cnt = torch.tensor([w.shape[0]  for w in pruned_weights[:-1]]).sum().numpy()
+    ckp['prune_ratio_neuron'] = 1 - float(keep_neuron_cnt) / float(neurons_cnt)
+    ckp['arch'] = os.path.basename(model_path).split('_')[2]
+
     # save the checkpoint 
     m_pruned_ckp_path = os.path.join(model_path, 'magnitude_pruned_checkpoint_120.tar')
-    torch.save(ckp, pruned_ckp_path) 
+    torch.save(ckp, m_pruned_ckp_path) 
+
+    print(model_path)
+    print('pruning_ratio_weights:', 1 - keep_ratio)
+    print('pruning_ratio_neurons:', ckp['prune_ratio_neuron'])
+
 
 def weights_bias_from_fcnn_ckp(ckp):
     w_names = sorted([name for name in ckp['state_dict'].keys() 

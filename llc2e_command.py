@@ -3,6 +3,8 @@ import sys
 import numpy as np
 
 from common.io import mkpath,mkdir
+from dir_lookup import stb_root, model_root
+
 types = ["100-100", "200-200", "100-100-100", "400-400"] 
 types = ["100-100-100-100-100",  "25-25-25", "800-800", "100-100-100-100", ] 
 #types = ["100-100", "200-200", "400-400", "800-800", "100-100-100", "100-100-100-100", "100-100-100-100-100", '1600-1600'] 
@@ -72,7 +74,7 @@ eval_stable_neurons     = False
 
 time_limit = 10800 #600
 
-model_dir = mkdir(f'./model_dir/{dataset}')
+model_dir = mkdir(f'./{model_root}/{dataset}')
 if test_new_compression or test_old_compression:
     script_dir = 'scripts/compress'
 elif eval_stable_neurons:

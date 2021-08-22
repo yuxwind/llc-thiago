@@ -5,7 +5,10 @@ from glob import glob
 from common.io import mkdir,mkpath
 from common.time import today_, now_
 from cfg import type_arch,small_types,large_types 
-from dir_lookup import collect_rst 
+from dir_lookup import collect_rst, cnt_rst, stb_neuron
+from dir_lookup import model_root as model_dir
+from dir_lookup import stb_root as rst_dir
+
 ####################################################
 # Track progress of the models: whether the training is done, whether the MILP is done
 # Ouput a todo list for the unfinished tasks:
@@ -20,20 +23,24 @@ NP          = 'NP'      # couting stable without preprocessing
 PRE         = 'PRE'     # counting stable from training samples
 OD          = 'OD'      # old approach to count stable 
 PRUNE       = 'PRUNE'   # prune the network with the neuron stability 
-PRUNEM       = 'PRUNEM'   # prune the network with the magnitude based pruning 
+PRUNEM      = 'PRUNEM'  # prune the network with the magnitude based pruning 
+EVALM       = 'EVALM'   # evaluate the pruned model by magnitude based algorithm
+EVAL       = 'EVAL'   # evaluate the model 
+EVALL       = 'EVALL'   # evaluate the llc model  
 
 RUN         = 'R'       # it is running
 DONE        = 'D'       # it is done
 UNDONE      = 'U'       # it is not finished
 UNKNOWN     = 'X'       # it is unknown
-ACTIONS     = [TRAIN, AP, NP, PRE, OD, PRUNE, PRUNEM]
+ACTIONS     = [TRAIN, AP, NP, PRE, OD, PRUNE, PRUNEM, EVALM, EVAL, EVALL]
 act_dict    = dict(zip(ACTIONS, range(len(ACTIONS))))
 
-model_dir   = './model_dir'
+#model_dir   = './model_dir'
 #rst_dir     = './results/'
-rst_dir     = './results-restrict_input/'
-cnt_rst     = 'counting_results/'
-stb_neuron  = 'stable_neurons/'
+#rst_dir     = './results-restrict_input/'
+#cnt_rst     = 'counting_results/'
+#stb_neuron  = 'stable_neurons/'
+
 #SCRIPT      = 'get_activation_patterns.py'
 SCRIPT      = 'nn_milp_per_network.py'
 
@@ -81,6 +88,52 @@ def start_PRE(model_name):
             "  -e --eval-stable --eval-train-data" + " --dataset " + dataset
     return cmd
 
+def check_EVAL(model_name):
+    dataset = os.path.basename(model_name).split('_')[1]
+    eval_path = os.path.join(model_dir, dataset, os.path.basename(model_name), 'eval.txt')
+    if os.path.exists(eval_path):
+        f = open(eval_path, 'r')
+        # format: model_name,acc_orig,acc_llc,acc_mc
+        acc_orig = f.readlines()[-1].split(',')[1].strip()
+        if acc_orig == '-':
+            return False
+        else:
+            return True
+    else:
+        return False
+
+def start_EVAL(model_name):
+    dataset = os.path.basename(model_name).split('_')[1]
+    arch = os.path.basename(model_name).split('_')[2]
+    model_root = os.path.join(model_dir, dataset, os.path.basename(model_name))
+    cmd = "python train_fcnn.py --arch " + type_arch[arch] + " --resume " + \
+            os.path.join(model_root, 'checkpoint_120.tar') + \
+            " -e " + " --dataset " + dataset
+    return cmd
+
+def check_EVALM(model_name):
+    dataset = os.path.basename(model_name).split('_')[1]
+    eval_path = os.path.join(model_dir, dataset, os.path.basename(model_name), 'eval.txt')
+    if os.path.exists(eval_path):
+        f = open(eval_path, 'r')
+        # format: model_name,acc_orig,acc_llc,acc_mc
+        rst = f.readlines()[-1].split(',')
+        acc_mc = rst[3].strip()
+        if acc_mc == '-' or len(rst) < 7:
+            return False
+        else:
+            return True
+    else:
+        return False
+
+def start_EVALM(model_name):
+    dataset = os.path.basename(model_name).split('_')[1]
+    arch = os.path.basename(model_name).split('_')[2]
+    model_root = os.path.join(model_dir, dataset, os.path.basename(model_name))
+    cmd = "python train_fcnn.py --arch " + type_arch[arch] + " --resume " + \
+            os.path.join(model_root, 'magnitude_pruned_checkpoint_120.tar') + \
+            " -e " + " --dataset " + dataset
+    return cmd
 # check whether MILP with preprocessing all training samples is done
 def check_OD(model_name):
     dataset = os.path.basename(model_name).split('_')[1]
@@ -126,7 +179,7 @@ def start_training(model_name):
     
     cmd = "python train_fcnn.py --arch " + type_arch[arch] + " --save-dir " + folder  + " --l1 " + l1 + " --dataset " + dataset + " --eval-stable "
     log = mkpath(f"logs/training/{os.path.basename(model_name)}.log")
-    print(log)
+    #print(log)
     return cmd
 
 def check_PRUNE(model_name):
@@ -140,7 +193,7 @@ def start_PRUNE(model_name):
     return cmd
 
 def check_PRUNEM(model_name):
-    if os.path.exists(os.path.join(model_name, 'magnituded_pruned_checkpoint_120.tar')):
+    if os.path.exists(os.path.join(model_name, 'magnitude_pruned_checkpoint_120.tar')):
         return True
     else:
         return False
@@ -213,6 +266,12 @@ elif action == 'prune':
     aid = 5
 elif action == 'prune_magnitude':
     aid = 6
+elif action == 'eval_magnitude':
+    aid = 7
+elif action == 'eval':
+    aid = 8
+elif action == 'eval_llc':
+    aid = 9
 else:
     print('Unknown action')
 
@@ -290,6 +349,12 @@ for i,l in enumerate(track_list):
             done = check_PRUNE(exp)
         elif aid == 6:
             done = check_PRUNEM(exp)
+        elif aid == 7:
+            done = check_EVALM(exp)
+        elif aid == 8:
+            done = check_EVAL(exp)
+        elif aid == 9:
+            done = check_EVALML(exp)
 
         #done=False
         if done is None:
@@ -324,6 +389,7 @@ for i,l in enumerate(track_list):
 #with open(p_track, 'w') as f:
 #    for l in track_list:
 #        f.write(l+'\n')
+import pdb;pdb.set_trace()
 print(path_todo)
 print('todo: ', len(todo))
 print(path_unknown)
@@ -343,6 +409,12 @@ for l in todo:
         f_todo.write(start_PRUNE(l) + '\n')
     elif aid == 6:
         f_todo.write(start_PRUNEM(l) + '\n')
+    elif aid == 7:
+        f_todo.write(start_EVALM(l) + '\n')
+    elif aid == 8:
+        f_todo.write(start_EVAL(l) + '\n')
+    elif aid == 9:
+        f_todo.write(start_EVALL(l) + '\n')
     for ll in collect_rst(l, ACTIONS[aid]):
         f_todo_rst.write(ll + '\n')
 

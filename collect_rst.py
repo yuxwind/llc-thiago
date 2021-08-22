@@ -2,10 +2,15 @@ import os
 import sys
 from glob import glob
 import numpy as np
+import torch
 
 from common.io import mkdir,mkpath
 from common.time import today_, now_
 from cfg import type_arch,large_types 
+from dir_lookup import model_root as model_dir
+from dir_lookup import stb_root as rst_dir
+from dir_lookup import cnt_rst, stb_neuron
+
 ####################################################
 # Track progress of the models: whether the training is done, whether the MILP is done
 # Ouput a todo list for the unfinished tasks:
@@ -13,11 +18,11 @@ from cfg import type_arch,large_types
 #       python track_progress.py cifar10-gray ap 0 # check MILP with preprocessing using all training samples 
 ####################################################
 
-model_dir   = './model_dir'
+#model_dir   = './model_dir'
 #rst_dir     = './results/'
-rst_dir     = 'results-restrict_input/'
-cnt_rst     = 'counting_results/'
-stb_neuron  = 'stable_neurons/'
+##rst_dir     = 'results-restrict_input/'
+#cnt_rst     = 'counting_results/'
+#stb_neuron  = 'stable_neurons/'
 
 # results of counting stable neurons with/w.o preprecessing
 NOPRE       = 'results-no_preprocess'
@@ -67,8 +72,25 @@ def collect_AP(model_name, tag=ALLPRE):
     #import pdb;pdb.set_trace()
     #return ''
 
+def collect_EVAL(model_name):
+    rst_path = os.path.join(model_name, 'eval.txt')
+    if os.path.exists(rst_path):
+        rst = [l.strip() for l in open(rst_path, 'r').readlines()]
+        rst = rst[-1] 
+    else:
+        rst = model_name + ',-,-,-'
+    m_pruned_ckp_path = os.path.join(model_name, 'magnitude_pruned_checkpoint_120.tar')
+    if os.path.exists(m_pruned_ckp_path):
+        ckp = torch.load(m_pruned_ckp_path)
+        prune_ratio_weight = ckp['prune_ratio_weight']
+        prune_ratio_neuron = ckp['prune_ratio_neuron']
+        arch = os.path.basename(model_name).split('_')[2]
+        rst += f',{arch},{prune_ratio_neuron},{prune_ratio_weight}'
+        
+    return rst
+
 dataset = sys.argv[1] # this can be 'mnist', 'cifar10-gray', 'cifar10-rgb', 'cifar100-rgb' 
-action  = sys.argv[2] # this can be 'ap', 'np', 'pp' 
+action  = sys.argv[2] # this can be 'ap', 'np', 'pp', 'eval' 
 
 if dataset == 'mnist':
     track_list = mnist_track_list
@@ -108,18 +130,25 @@ for i,l in enumerate(track_list):
         tag = PARTPRE
     elif action == 'old':
         tag = OLD
+    elif action == 'eval':
+        tag = 'eval'
     else:
         print('Unkown action')
 
-    pre_act, pre_inact=collect_stable_from_sample(exp)
-
-    rst = collect_AP(exp, tag)
-    print(rst)
-    #import pdb;pdb.set_trace()
-    if len(rst.split(',')) > 2:
-        f_rst.write(rst.strip() + ',' + str(pre_act) + ',' + str(pre_inact) + '\n')
-    else:
+    if action == 'eval':
+        rst = collect_EVAL(exp)
+        print(rst)
         f_rst.write(rst.strip() + '\n')
+    else:
+        pre_act, pre_inact=collect_stable_from_sample(exp)
+
+        rst = collect_AP(exp, tag)
+        print(rst)
+        #import pdb;pdb.set_trace()
+        if len(rst.split(',')) > 2:
+            f_rst.write(rst.strip() + ',' + str(pre_act) + ',' + str(pre_inact) + '\n')
+        else:
+            f_rst.write(rst.strip() + '\n')
         
 
 print(path_rst)

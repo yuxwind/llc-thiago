@@ -44,6 +44,7 @@ import torchvision.datasets as datasets
 sys.path.insert(0, './train')
 import fcnn
 from utils import DataParallelPassThrough
+from dataset import get_data
 
 #import VGG
 import torch.nn.functional as F
@@ -118,7 +119,7 @@ def main():
     device = torch.device("cuda" if use_cuda else "cpu")
     fcnn_flag       = True
     sep             = "," #This is used for separating in weights.dat file
-    save_frequency  = 120
+    save_frequency  = 2
     eval_frequency  = 2
     #save_frequency  = 1 # DEBUG
 
@@ -227,14 +228,6 @@ def main():
     distbn = torch.distributions.normal.Normal(0, stddev)
 
     normalize  = transforms.Normalize(mean=[0], std=[1])
-    if(dataset == "CIFAR10"):
-        print("Running on CIFAR10")
-        input_dim  = 1024
-    elif (dataset == "MNIST"):
-        print("Running on MNIST")
-        input_dim = 784
-    else:
-        print("Unknown Dataset")
 
     if(args.fix_activations):
         print("Beta = " + str(args.beta))
@@ -262,16 +255,58 @@ def main():
             return
         else:
             # Consider using augmentation: Std deviation of the noise while testing/evaluation = stddev
-            args.eval_train_data = True 
-            val_loader = get_data(dataset, args.test_batch_size, args.workers, 
-                                    train=args.eval_train_data, shuffle=False, 
-                                    has_augmentation = args.augmentation)
-            print('datasize:', len(val_loader.dataset))
             if not args.eval_stable: 
-                acc = validate(val_loader, model, criterion, 1, device, fcnn_flag)
+                val_loader = get_data(dataset, args.test_batch_size, args.workers, 
+                                    train=False, shuffle=False, 
+                                    has_augmentation = args.augmentation)
+                acc, all_pred, all_correct, all_output = validate(val_loader, model, criterion, 1, device, fcnn_flag)
+                if args.resume and 'magnitude_pruned_' in args.resume:
+                    orig_model = args.resume.replace('magnitude_pruned_', '')
+                    print("=> loading checkpoint '{}'".format(orig_model))
+                    orig_ckp = torch.load(orig_model)
+                    model.load_state_dict(orig_ckp['state_dict'])
+                    orig_acc, orig_all_pred, orig_all_correct, orig_all_output = validate(
+                            val_loader, model, criterion, 1, device, fcnn_flag)
+                    diff_pred = (all_pred != orig_all_pred).sum()
+                    diff_output = (orig_all_output - all_output).abs().max()
+                    diff_output_cls = (orig_all_output.max(dim=1)[0] - all_output.max(dim=1)[0]
+                                        ).abs().max()
+                print('datasize:', len(val_loader.dataset))
                 print('acc:', acc)
+                fpath = os.path.join(os.path.dirname(args.resume), 'eval.txt')
+                if os.path.exists(fpath):
+                    with open(fpath, 'r') as f:
+                        l = f.readlines()[-1].strip().split(',')
+                        if len(l) == 4:
+                            acc_orig, acc_llc, acc_mc = l[1], l[2], l[3]
+                        if len(l) == 7:
+                            acc_orig, acc_llc, acc_mc, diff_pred_orig_mc, diff_out_orig_mc, \
+                                    diff_out_cls_orig_mc = l[1], l[2], l[3], l[4], l[5], l[6]
+
+                else:
+                    acc_orig = '-'
+                    acc_llc  = '-'
+                    acc_mc   = '-'
+                    diff_pred_orig_mc, diff_out_orig_mc, diff_out_cls_orig_mc = '-', '-', '-'
+                ckp_name = os.path.basename(args.resume)
+                if ckp_name == 'magnitude_pruned_checkpoint_120.tar':
+                    acc_mc = acc
+                    acc_orig = orig_acc
+                    diff_pred_orig_mc = diff_pred
+                    diff_out_orig_mc  = diff_output
+                    diff_out_cls_orig_mc = diff_output_cls
+                elif ckp_name == 'pruned_checkpoint_120.tar':
+                    acc_llc = acc
+                else:
+                    acc_orig = acc
+                with open(fpath, 'w') as f:
+                    info = args.resume + f',{acc_orig},{acc_llc},{acc_mc},{diff_pred_orig_mc}' + \
+                            f',{diff_out_orig_mc},{diff_out_cls_orig_mc}'
+                    print(info)
+                    f.write(info + '\n')
             else:
                 print('load checkpoints: ', args.resume)
+                args.eval_train_data = True 
                 active_states, acc, masks = eval_active_state(val_loader, model, criterion, fcnn_flag)
                 # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
                 stably_active_ind, stably_inactive_ind = find_stable_neurons(active_states)
@@ -280,23 +315,19 @@ def main():
                             'stably_active': stably_active_ind.numpy(),
                             'stably_inactive': stably_inactive_ind.numpy()
                 })
-            # on eval dataset
-            args.eval_train_data = False
-            val_loader = get_data(dataset, args.test_batch_size, args.workers, 
-                                    train=args.eval_train_data, shuffle=False, 
-                                    has_augmentation = args.augmentation)
-            print('datasize:', len(val_loader.dataset))
-            if not args.eval_stable: 
-                acc = validate(val_loader, model, criterion, 1, device, fcnn_flag)
-                print('acc:', acc)
-            else:
+                # on eval dataset
+                args.eval_train_data = False
+                val_loader = get_data(dataset, args.test_batch_size, args.workers, 
+                                        train=args.eval_train_data, shuffle=False, 
+                                        has_augmentation = args.augmentation)
+                print('datasize:', len(val_loader.dataset))
                 print('load checkpoints: ', args.resume)
                 active_states_, acc_, masks_ = eval_active_state(val_loader, model, criterion, fcnn_flag)
                 # Get the index of stable neurons, the input is layer 0 and the layer index starts from 1  
                 if not fcnn_flag:
                     print('+++++++++++++++++++++++')
-                    acc_no = validate(val_loader, model, criterion, 1, device, fcnn_flag)
-                    acc_mask = validate(val_loader, lenet_prune, criterion, 1, device, 
+                    acc_no,_,_,_ = validate(val_loader, model, criterion, 1, device, fcnn_flag)
+                    acc_mask,_,_,_ = validate(val_loader, lenet_prune, criterion, 1, device, 
                             fcnn_flag, masks)
                 stably_active_ind_, stably_inactive_ind_ = find_stable_neurons(active_states_)
 
@@ -337,7 +368,6 @@ def main():
                             'stably_active.diff':   [ cc_train2, cc_test2, wrong_train2],
                             'stably_inactive.diff': [ cc_train1, cc_test1, wrong_train1]
                 })
-            args.eval_train_data = True
 
                 
             # Write model weights in CPLEX Format
@@ -389,7 +419,7 @@ def main():
 
         print("\n\n")
        
-        train_loader = get_data(dataset, args.batch_size, args.worker, train=True, shuffle=True)
+        train_loader = get_data(dataset, args.batch_size, args.workers, train=True, shuffle=True)
         #import pdb;pdb.set_trace()
         # Optimizer
         optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum,  weight_decay=args.wd)
@@ -412,7 +442,7 @@ def main():
             train(train_loader, model, criterion, optimizer, epoch,  device, fcnn_flag, args)
             # evaluate on validation set
             if (epoch % eval_frequency == 0):
-                prec1 = validate(val_loader, model, criterion, epoch, device, fcnn_flag)
+                prec1,_,_,_ = validate(val_loader, model, criterion, epoch, device, fcnn_flag)
 
                 # For MNIST dataset, if accuracy is close to 10%, the model did not converge.
                 # Stop training it further. Saves some time especially with adversarial training.
@@ -513,7 +543,8 @@ def train(train_loader, model, criterion, optimizer, epoch,  device, fcnn_flag, 
         loss = loss.float()
 
         # measure accuracy and record loss
-        prec1 = accuracy(output.data , target)[0]
+        prec1,_,_ = accuracy(output.data , target)
+        prec1 = prec1[0]
         losses.update   (loss.item() , data.size(0))
         top1.update     (prec1.item(), data.size(0))
 
@@ -600,6 +631,9 @@ def validate(val_loader, model, criterion, epoch, device, fcnn_flag, masks=None)
     losses = AverageMeter()
     top1 = AverageMeter()
 
+    all_pred = []    # predicted cls id
+    all_correct = [] # binary array to indicate correct prediction
+    all_output = []      # network output
     # switch to evaluate mode
     model.eval()
 
@@ -626,9 +660,14 @@ def validate(val_loader, model, criterion, epoch, device, fcnn_flag, masks=None)
         loss = loss.float()
 
         # measure accuracy and record loss
-        prec1 = accuracy(output.data , target)[0]
+        prec_, pred_, correct_ = accuracy(output.data , target)
+        #import pdb;pdb.set_trace()
+        prec1 = prec_[0]
         losses.update   (loss.item() , data.size(0))
         top1.update     (prec1.item(), data.size(0))
+        all_pred.append(pred_)      # pred_:    topk x batch_size
+        all_correct.append(correct_)# correct_: topk x batch_size
+        all_output.append(output)   # output:   batch_size x cls_num
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -641,11 +680,13 @@ def validate(val_loader, model, criterion, epoch, device, fcnn_flag, masks=None)
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
                       i, len(val_loader), batch_time=batch_time, loss=losses,
                       top1=top1))
-
+    all_pred = torch.cat(all_pred, dim=1).permute(1,0)    #data_size x topk 
+    all_correct = torch.cat(all_correct, dim=1).permute(1,0) #data_size x topk 
+    all_output = torch.cat(all_output, dim=0)             #data_size x cls_num
     print('Epoch: [{0}] * Prec@1 {top1.avg:.3f}'
           .format(epoch, top1=top1))
 
-    return top1.avg
+    return top1.avg, all_pred, all_correct, all_output
 
 
 
@@ -686,7 +727,7 @@ def accuracy(output, target, topk=(1,)):
     for k in topk:
         correct_k = correct[:k].view(-1).float().sum(0)
         res.append(correct_k.mul_(100.0 / batch_size))
-    return res
+    return res, pred, correct
 
 
 
@@ -868,7 +909,8 @@ def get_features(val_loader, model, criterion):
         loss = loss.float()
 
         # measure accuracy and record loss
-        prec1 = accuracy(output.data, target)[0]
+        prec1,_,_ = accuracy(output.data, target)
+        prec1 = prec1[0]
         losses.update(loss.data[0], input.size(0))
         top1.update(prec1[0], input.size(0))
 
@@ -974,7 +1016,8 @@ def eval_active_state(val_loader, model, criterion, fcnn_flag):
         loss = loss.float()
 
         # measure accuracy and record loss
-        prec1 = accuracy(output.data, target_var)[0]
+        prec1,_,_ = accuracy(output.data, target_var)
+        prec1 = prec1[0]
         losses.update(loss.data, input.size(0))
         top1.update(prec1, input.size(0))
 
