@@ -8,6 +8,10 @@ results/
 results-minit-wo_preprocess/
 results-mnist-preprocess_all/
 results-restrict_input/*
+model_dir*/
+results*/
+scripts/*
+track_progress/*
 
 slurm-gpu-job.out
 *.tgz
