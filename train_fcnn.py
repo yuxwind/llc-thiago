@@ -93,6 +93,13 @@ parser.add_argument('-f', '--fix_activations'                       , default=Fa
 parser.add_argument(      '--beta'             , type=float         , default=0.003      , metavar='be'   , help='tradeoff between softmax and MSE (default: 0.003)')
 parser.add_argument('-p', '--activation_path'  , type=str           , default='../prior/class_10_dim_512_sp_0.7_fp_0.5.config', help='fixed_Activations_file_path in the form of csv file')
 
+## imbalanced training dataset options
+#parser.add_argument(      '--im_clsid'             , type=int         , default=3     ,help='reduce the data size in im_clsid')
+#parser.add_argument(      '--im_ratio'             , type=float         , default=1.  ,help='keep im_ratio of certain class to generate biased training datasest')
+
+args = parser.parse_args()
+#ImbalanceCfg = namedtuple('Imbalance', ['clsid', 'keep_ratio'])
+#imbalance_cfg = ImbalanceCfg(, 1/256.0) # 1/4, 1/16, 1/64, 1/256
 
 best_prec1 = 0
 adversarial_epsilon       = 0.15
@@ -110,7 +117,6 @@ dataset                   = "MNIST"#"CIFAR10" #"MNIST"
 ################################################################################
 def main():
     global args, best_prec1
-    args = parser.parse_args()
 
     dataset = args.dataset 
 

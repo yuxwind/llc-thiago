@@ -23,6 +23,8 @@ ImbalanceCfg = namedtuple('Imbalance', ['clsid', 'keep_ratio'])
 imbalance_cfg = ImbalanceCfg(3, 1/256.0) # 1/4, 1/16, 1/64, 1/256
 stb_root    = f'./results-imbalanced_cls{imbalance_cfg.clsid}_{imbalance_cfg.keep_ratio:.4f}/' 
 model_root  = f'./model_dir-imbalanced_cls{imbalance_cfg.clsid}_{imbalance_cfg.keep_ratio:.4f}'
+print(stb_root)
+print(model_root)
 
 def get_stb_dir(dataset, tag):
     stb_dir = mkdir(os.path.join(stb_root, dataset, tag, cnt_rst))
