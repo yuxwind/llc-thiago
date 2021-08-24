@@ -40,7 +40,6 @@ act_dict    = dict(zip(ACTIONS, range(len(ACTIONS))))
 #rst_dir     = './results-restrict_input/'
 #cnt_rst     = 'counting_results/'
 #stb_neuron  = 'stable_neurons/'
-import pdb;pdb.set_trace()
 
 #SCRIPT      = 'get_activation_patterns.py'
 SCRIPT      = 'nn_milp_per_network.py'
@@ -219,8 +218,7 @@ def start_AP(model_name):
     terms = os.path.basename(model_name).split('_')
     dataset = terms[1]
     folder = mkdir(os.path.join(model_dir, dataset, os.path.basename(model_name)))
-
-    cmd = "python " + SCRIPT + " -b --input " + folder + "/weights.dat" + " --formulation network --time_limit " + str(time_limit) + " --dataset " + dataset + " --preprocess_all_samples"
+    cmd = "python " + SCRIPT + " -b --input " + folder + "/weights.npy" + " --formulation network --time_limit " + str(time_limit) + " --dataset " + dataset + " --preprocess_all_samples"
     return cmd
 
 def start_NP(model_name):
@@ -278,9 +276,16 @@ else:
 
 todo = []
 unknown = []
+
+try:
+    from dir_lookup import imbalance_cfg
+    cfg_info = f'.{imbalance_cfg.keep_ratio:.04f}_1'
+except:
+    cfg_info = ''
+    
 track_dir = './track_progress'
-name_todo = f'todo_{ACTIONS[aid]}_{dataset}.sh'
-name_unknown = f'unknow_{ACTIONS[aid]}_{dataset}.sh'
+name_todo = f'todo_{ACTIONS[aid]}_{dataset}.sh{cfg_info}'
+name_unknown = f'unknow_{ACTIONS[aid]}_{dataset}.sh{cfg_info}'
 path_todo = os.path.join(track_dir, name_todo)
 path_unknown = os.path.join(track_dir, name_unknown)
 
@@ -313,6 +318,7 @@ for i,l in enumerate(track_list):
     arrs = l.strip().split('#')
     exp = arrs[-1]
     arch = os.path.basename(exp).split('_')[2]
+    exp = os.path.basename(exp)
     #if len(arrs) == 2:
     #    prev_tag = arrs[0].split(',')
     #    # get states for each actions
@@ -377,7 +383,6 @@ for i,l in enumerate(track_list):
                     todo.append(exp)
             else:
                 if not tr_done:
-                    import pdb;pdb.set_trace()
                     print(exp)
                 #if tr_done and arch in large_types:
                 if tr_done:

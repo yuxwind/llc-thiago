@@ -20,7 +20,7 @@ imbalance_cfg = None
 #model_root  = './model_dir/'
 ### For the exp training on imbalance data: keep 50% images of cats
 ImbalanceCfg = namedtuple('Imbalance', ['clsid', 'keep_ratio'])
-imbalance_cfg = ImbalanceCfg(3, 1/256.0) # 1/4, 1/16, 1/64, 1/256
+imbalance_cfg = ImbalanceCfg(3, 1.0/16) # 1/4, 1/16, 1/64, 1/256
 stb_root    = f'./results-imbalanced_cls{imbalance_cfg.clsid}_{imbalance_cfg.keep_ratio:.4f}/' 
 model_root  = f'./model_dir-imbalanced_cls{imbalance_cfg.clsid}_{imbalance_cfg.keep_ratio:.4f}'
 print(stb_root)

@@ -12,6 +12,8 @@ model_dir*/
 results*/
 scripts/*
 track_progress/*
+model_dir*
+results*
 
 slurm-gpu-job.out
 *.tgz

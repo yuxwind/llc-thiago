@@ -63,7 +63,7 @@ import random
 
 from common.io import mkpath, mkdir
 from dir_lookup import *
-from nn_milp_utils import parse_file
+from nn_milp_utils import parse_file, parse_npy
 
 
 accuracy = None
@@ -126,7 +126,8 @@ print_freq       = 1000
 ################################################################################
 # Initialisations
 ################################################################################
-layers, nodes_per_layer, weights, bias = parse_file(args.input)
+#layers, nodes_per_layer, weights, bias = parse_file(args.input)
+layers, nodes_per_layer, weights, bias = parse_npy(args.input)
 
 # Total number of layers including input is layers+1
 tot_layers = layers+1
@@ -220,7 +221,7 @@ else:
 
 stb_dir = mkdir(os.path.join(stb_root, args.dataset, tag, cnt_rst))
 exp_name = os.path.basename(os.path.dirname(args.input))
-stable_neurons_path = mkpath(os.path.join(stb_dir, args.dataset, tag, stb_neuron, exp_name + '.npy'))
+stable_neurons_path = mkpath(os.path.join(stb_root, args.dataset, tag, stb_neuron, exp_name + '.npy'))
 f = open(mkpath(os.path.join(stb_dir, exp_name + '.txt')), "a+")
 f.write(network+", "+str(accuracy)+", , ")
 
@@ -434,7 +435,6 @@ if determine_stability_per_network:
             print('Obj: %g' % (model.objVal))
             print(quicksum(p[m, n] for (m, n) in p_lst))
             print(quicksum(q[m, n] for (m, n) in q_lst))
-            import pdb;pdb.set_trace()		
 
             for m in range(1, run_till_layer_index):
               for n in range(nodes_per_layer[m]):
