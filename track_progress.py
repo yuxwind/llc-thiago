@@ -396,7 +396,7 @@ for i,l in enumerate(track_list):
 #with open(p_track, 'w') as f:
 #    for l in track_list:
 #        f.write(l+'\n')
-import pdb;pdb.set_trace()
+#import pdb;pdb.set_trace()
 print('model_dir: ', model_dir)
 print(path_todo)
 print('todo: ', len(todo))

@@ -167,15 +167,16 @@ class ImbalancedDataset(torch.utils.data.Dataset):
     def __init__(self, ds, clsid=0, keep_ratio=1.0):
         self.imb_cls = clsid
         self.ds = ds
-        
+       
         ids = np.array([ds[i][1] for i in range(len(self.ds))])
         if keep_ratio < 1.0:
             cls_ids = np.argwhere(ids == self.imb_cls).squeeze()
             np.random.seed(1)
-            del_ids = np.random.choice(cls_ids, max(1, int(len(cls_ids) * (1 - keep_ratio))))
-            self.new_ids = [i for i in ids if i not in del_ids]
+            np.random.shuffle(cls_ids)
+            del_ids = cls_ids[:max(1, int(len(cls_ids) * (1 - keep_ratio)))]
+            self.new_ids = [i for i in range(len(ds)) if i not in del_ids]
         else:
-            self.new_ids = ids
+            self.new_ids = np.arange(len(ds))
 
     def __len__(self):
         return len(self.new_ids)

@@ -73,6 +73,8 @@ def collect_AP(model_name, tag=ALLPRE):
     #return ''
 
 def collect_EVAL(model_name):
+    root = model_name.strip('./').split('/')[0]
+    model_name = model_name.replace(root, model_dir.strip('./'))
     rst_path = os.path.join(model_name, 'eval.txt')
     if os.path.exists(rst_path):
         rst = [l.strip() for l in open(rst_path, 'r').readlines()]

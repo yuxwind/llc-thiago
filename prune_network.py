@@ -400,7 +400,9 @@ def prune_ckp(model_path,tag):
 if __name__ == '__main__':
     #model_path = 'model_dir/CIFAR100-rgb/dnn_CIFAR100-rgb_400-400_7.500000000000001e-05_0001'
     #model_path = 'model_dir/CIFAR10-rgb/dnn_CIFAR10-rgb_400-400_0.000175_0002'
-    model_path = sys.argv[1]
+    model_name = os.path.basename(sys.argv[1])
+    dataset = model_name.split('_')[1]
+    model_path = os.path.join(model_root, dataset, sys.argv[1])
     if len(sys.argv) > 2 and sys.argv[2] == 'magnitude':
         magnituded_based_prune_ckp(model_path, ALLPRE)
     else:

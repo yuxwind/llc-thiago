@@ -10,14 +10,16 @@ try:
     from dir_lookup import imbalance_cfg
     cfg_info = f'.{imbalance_cfg.keep_ratio:.04f}_1'
 except:
-cfg_info = ''
+    cfg_info = ''
 
 
 todo    = sys.argv[1]
 #todo = 'track_progress/todo_OD_cifar10_cifar100_large_net.sh'
 #todo = './track_progress/todo_AP_mnist.sh'
 #todo = './track_progress/todo_AP_cifar10-rgb.sh'
-todo = './track_progress/todo_AP_cifar10-rgb.sh{cfg_info}'
+#todo = f'./track_progress/todo_AP_cifar10-rgb.sh{cfg_info}'
+#todo = f'./track_progress/todo_PRUNEM_cifar10-rgb.sh{cfg_info}'
+todo = f'./track_progress/todo_EVALM_cifar10-rgb.sh{cfg_info}'
 cmds    = open(todo, 'r').readlines()
 #todo2 = 'track_progress/todo_OD_cifar10_cifar100_large_net.sh'
 #cmds2    = open(todo2, 'r').readlines()
@@ -38,7 +40,7 @@ log  = os.path.join(f'./logs/{name}.log')
 env = "GRB_LICENSE_FILE=~/gurobi-license/`sh ~/get_uname.sh`/gurobi.lic "
 # on multiple GPU envs
 #env = 'CUDA_VISIBLE_DEVICES=0'
-#env = sys.argv[4]
+env = sys.argv[4]
 
 with open(script, 'w') as f:
     for l in sub:

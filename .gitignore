@@ -14,6 +14,7 @@ scripts/*
 track_progress/*
 model_dir*
 results*
+test*
 
 slurm-gpu-job.out
 *.tgz
