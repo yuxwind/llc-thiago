@@ -233,7 +233,7 @@ def start_NP(model_name):
 
 
 dataset = sys.argv[1] # this can be 'mnist', 'cifar10-gray', 'cifar10-rgb', 'cifar100-rgb' 
-action = sys.argv[2] # this can be 'tr', 'ap', 'np', 'prune', 'prune_magnitude'
+action = sys.argv[2] # this can be 'tr', 'ap', 'np', 'prune', 'prune_magnitude', 'eval_magnitude',  'eval', 'eval-llc'
 #start_job   = int(sys.argv[3])   # this can be 1 or 0 to indicate whether to start running   
 
 if dataset == 'mnist':
